@@ -1,12 +1,12 @@
 {
   "status": "IN_POSITION",
-  "direction": "LONG",
-  "entry1_order_id": 23990421763,
-  "entry2_order_id": 23990422490,
-  "sl_order_id": 1000000146049136,
-  "tp_order_id": 23990649026,
-  "atr_at_signal": 10.663343350875952,
-  "signal_candle_time": 1785000180000,
-  "tp_level": 1,
-  "last_resized_qty": 0.0541
+  "direction": "SHORT",
+  "entry1_order_id": 24001975900,
+  "entry2_order_id": 24001976469,
+  "sl_order_id": 1000000146107608,
+  "tp_order_id": 24002077175,
+  "atr_at_signal": 20.247032058463414,
+  "signal_candle_time": 1785005040000,
+  "tp_level": 0,
+  "last_resized_qty": 0.0612
 }

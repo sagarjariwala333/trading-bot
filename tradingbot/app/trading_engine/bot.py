@@ -457,6 +457,9 @@ NON_RETRYABLE_BINANCE_CODES = {
     -1013,  # invalid quantity/price - LOT_SIZE or PRICE_FILTER failure
     -1111,  # precision over the maximum defined for this asset
     -4164,  # order notional smaller than MIN_NOTIONAL
+    -2011,  # unknown order / already gone
+    -2013,  # order does not exist
+    -2021,  # order would immediately trigger
 }
 # Timestamp outside recvWindow - almost always local clock drift. Worth a resync +
 # retry rather than either failing immediately or retrying blindly without fixing
@@ -529,9 +532,20 @@ class ExchangeGateway:
                 code = self._binance_error_code(e)
 
                 if code in NON_RETRYABLE_BINANCE_CODES:
-                    self.log.error(f"{fn.__name__} failed with non-retryable error "
-                                    f"({code}): {e}. Not retrying - this needs a human "
-                                    f"to fix (credentials, balance, or an order parameter).")
+                    if code == -2013:
+                        order_ref = kwargs.get("orderId") or kwargs.get("algoId")
+                        if order_ref is None:
+                            self.log.info("Order no longer exists on Binance. "
+                                          "Assuming it has already been filled, cancelled, or replaced. "
+                                          "Removing from tracking.")
+                        else:
+                            self.log.info(f"Order {order_ref} no longer exists on Binance. "
+                                          f"Assuming it has already been filled, cancelled, or replaced. "
+                                          f"Removing from tracking.")
+                    else:
+                        self.log.error(f"{fn.__name__} failed with non-retryable error "
+                                       f"({code}): {e}. Not retrying - this needs a human "
+                                       f"to fix (credentials, balance, or an order parameter).")
                     raise
 
                 if code in CLOCK_DRIFT_BINANCE_CODES:
@@ -737,7 +751,7 @@ class ExchangeGateway:
         except Exception as e:
             error_code = self._binance_error_code(e)
             if error_code == -2011:
-                self.log.info(f"Order {order_id} already gone (was filled/cancelled on Binance before we could cancel)")
+                self.log.info(f"Order already gone.")
                 return
 
             # Some Binance conditional orders are represented as algo orders. Try the
@@ -752,7 +766,8 @@ class ExchangeGateway:
             except Exception as algo_e:
                 algo_code = self._binance_error_code(algo_e)
                 if algo_code == -2011:
-                    self.log.info(f"Algo order {order_id} already gone")
+                    self.log.info(f"Order already gone.")
+                    return
                 else:
                     self.log.warning(f"Could not cancel order {order_id} (tried both regular and algo): {e}")
             
@@ -858,6 +873,7 @@ class ExchangeGateway:
             stopPrice=self.round_price(stop_price),
             quantity=self.round_qty(qty),
             reduceOnly=True,
+            workingType="CONTRACT_PRICE",
             newClientOrderId=self._new_client_order_id(),
         )
         order_ref, _ = self._extract_order_ref(order)
@@ -1042,6 +1058,43 @@ class TradingBot:
 
     def save_state(self):
         self.state.save(self.cfg.state_file)
+
+    def validate_sl_price(self, direction: str, sl_price: float, mark_price: float) -> tuple:
+        """
+        Validate a stop-loss price against the current CONTRACT_PRICE and the exchange
+        tick size, then return a normalized result tuple.
+
+        Returns (is_valid, adjusted_price, reason).
+        The method never raises; on any unexpected problem it returns an invalid result
+        so the caller can keep the previous protective order in place.
+        """
+        try:
+            if direction not in {"LONG", "SHORT"}:
+                return False, float(sl_price), "unsupported direction"
+
+            mark_price_float = float(mark_price)
+            stop_price_float = float(sl_price)
+            adjusted_price = float(self.ex.round_price(stop_price_float))
+
+            if direction == "LONG":
+                if adjusted_price >= mark_price_float:
+                    gap = mark_price_float - adjusted_price
+                    return False, adjusted_price, (
+                        f"LONG SL at {adjusted_price:.2f} is at/above CONTRACT_PRICE "
+                        f"{mark_price_float:.2f} (gap={gap:.2f}) - would immediately trigger"
+                    )
+                return True, adjusted_price, None
+
+            if adjusted_price <= mark_price_float:
+                gap = adjusted_price - mark_price_float
+                return False, adjusted_price, (
+                    f"SHORT SL at {adjusted_price:.2f} is at/below CONTRACT_PRICE "
+                    f"{mark_price_float:.2f} (gap={gap:.2f}) - would immediately trigger"
+                )
+            return True, adjusted_price, None
+        except Exception as e:
+            self.log.warning(f"SL validation failed unexpectedly: {e}")
+            return False, float(sl_price), f"validation error: {e}"
 
     # ---------------------------------------------------------------
     def reconcile_on_startup(self):
@@ -1615,22 +1668,23 @@ class TradingBot:
         # harmless (Binance's reduce-only semantics cap fills at the actual position
         # size, so there's no double-close risk) - having NEITHER is not.
         
-        # NEW FIX 1: Validate SL price against current mark price to prevent -2021 errors
+        # Validate SL price against current CONTRACT_PRICE to prevent -2021 errors.
         try:
             mark_price = self.ex.get_current_price()
-            is_valid, error_msg = self.validate_sl_price(direction, sl_price, mark_price)
+            is_valid, adjusted_sl_price, reason = self.validate_sl_price(direction, sl_price, mark_price)
             if not is_valid:
-                self.log.warning(f"SL price validation failed: {error_msg}. "
+                self.log.warning(f"SL price validation failed: {reason}. "
                                 f"Keeping old SL in place, will retry next cycle.")
-                self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {error_msg}")
+                self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {reason}")
                 return  # Keep old SL, retry next cycle
-            self.log.info(f"SL price validated: {sl_price:.2f} is safe for market {mark_price:.2f}")
+            self.log.info(f"SL price validated: {adjusted_sl_price:.2f} is safe for market {mark_price:.2f}")
         except Exception as e:
             self.log.warning(f"Could not fetch mark price for SL validation: {e}. "
                             f"Placing SL anyway but with increased risk.")
+            adjusted_sl_price = sl_price
         
         try:
-            new_sl_id = self.ex.place_stop_market(close_side, sl_price, total_qty)
+            new_sl_id = self.ex.place_stop_market(close_side, adjusted_sl_price, total_qty)
         except Exception as e:
             self.log.error(f"Failed to place new SL - leaving the OLD SL in place untouched: {e}")
             self.notify.send(f"⚠️ Could not update SL on {self.cfg.symbol} - your PREVIOUS "
@@ -1658,10 +1712,10 @@ class TradingBot:
         self.state.sl_order_id = new_sl_id
         if new_tp_id is not None:
             self.state.tp_order_id = new_tp_id
-            self.log.info(f"Protective orders set: SL={sl_price:.2f} (qty {total_qty:.6f}), "
+            self.log.info(f"Protective orders set: SL={adjusted_sl_price:.2f} (qty {total_qty:.6f}), "
                            f"next TP (level {self.state.tp_level + 1})={tp_price:.2f} (qty {tp_qty:.6f})")
         else:
-            self.log.warning(f"SL updated to {sl_price:.2f} (qty {total_qty:.6f}), but TP placement "
+            self.log.warning(f"SL updated to {adjusted_sl_price:.2f} (qty {total_qty:.6f}), but TP placement "
                               f"failed - old TP order {old_tp_id} remains active as fallback.")
         
         # NEW FIX 4: Cache the position qty we just resized protective orders for.

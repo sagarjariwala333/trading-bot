@@ -513,9 +513,20 @@ class ExchangeGateway:
                 code = self._binance_error_code(e)
 
                 if code in NON_RETRYABLE_BINANCE_CODES:
-                    self.log.error(f"{fn.__name__} failed with non-retryable error "
-                                    f"({code}): {e}. Not retrying - this needs a human "
-                                    f"to fix (credentials, balance, or an order parameter).")
+                    if code == -2013:
+                        order_ref = kwargs.get("orderId") or kwargs.get("algoId")
+                        if order_ref is None:
+                            self.log.info("Order no longer exists on Binance. "
+                                          "Assuming it has already been filled, cancelled, or replaced. "
+                                          "Removing from tracking.")
+                        else:
+                            self.log.info(f"Order {order_ref} no longer exists on Binance. "
+                                          f"Assuming it has already been filled, cancelled, or replaced. "
+                                          f"Removing from tracking.")
+                    else:
+                        self.log.error(f"{fn.__name__} failed with non-retryable error "
+                                       f"({code}): {e}. Not retrying - this needs a human "
+                                       f"to fix (credentials, balance, or an order parameter).")
                     raise
 
                 if code in CLOCK_DRIFT_BINANCE_CODES:

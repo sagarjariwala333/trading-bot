@@ -1,7 +1,7 @@
 {
   "testnet": true,
   "symbol": "BTCUSDT",
-  "interval": "1m",
+  "interval": "12h",
   "leverage": 2,
   "margin_fraction_per_entry": 0.25,
   "margin_fraction_counter_trend": 0.2,

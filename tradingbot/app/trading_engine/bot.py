@@ -162,29 +162,45 @@ class Config:
     log_file: str = os.path.join(BOT_INSTANCE_DIR, "bot.log")
 
     # ---- dashboard integration -------------------------------------------
+    def get_symbol_from_env(self) -> str:
+        try:
+            return os.path.basename(os.path.abspath(BOT_INSTANCE_DIR)).upper()
+        except Exception:
+            return self.symbol
+
     def to_editable_dict(self) -> dict:
         return {k: getattr(self, k) for k in EDITABLE_FIELDS}
 
     def save_editable(self):
-        """Write the current editable fields to config_path (used to create the file
-        on first run, and whenever the dashboard writes a validated update)."""
-        atomic_write_json(self.config_path, self.to_editable_dict())
+        """Write the current editable fields to config_path and DB."""
+        data = self.to_editable_dict()
+        atomic_write_json(self.config_path, data)
+        try:
+            from app.core.db import save_db_config
+            save_db_config(self.get_symbol_from_env(), data)
+        except Exception as e:
+            logging.getLogger("ha_alma_bot").error(f"Failed to save config to DB: {e}")
 
     def reload_editable(self, allow_symbol_interval_change: bool = True):
         """
-        Re-read config_path and apply any changes. Called every tick so dashboard edits
-        take effect without restarting the bot. `symbol`/`interval` are only applied when
-        allow_symbol_interval_change=True (i.e. the bot is IDLE) - changing which market
-        or timeframe you're trading out from under an OPEN position would be genuinely
-        dangerous, so those two fields are locked while a trade is active.
+        Re-read config and apply any changes. Loads from DB primarily, falls back to config_path.
         """
-        if not os.path.exists(self.config_path):
-            return
+        data = None
         try:
-            with open(self.config_path) as f:
-                data = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return  # dashboard mid-write or file briefly invalid - just skip this cycle
+            from app.core.db import get_db_config
+            data = get_db_config(self.get_symbol_from_env())
+        except Exception as e:
+            logging.getLogger("ha_alma_bot").error(f"Failed to read config from DB: {e}")
+
+        if not data:
+            if not os.path.exists(self.config_path):
+                return
+            try:
+                with open(self.config_path) as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                return  # dashboard mid-write or file briefly invalid - just skip this cycle
+
         for k in EDITABLE_FIELDS:
             if k in ("symbol", "interval") and not allow_symbol_interval_change:
                 continue
@@ -192,7 +208,7 @@ class Config:
                 clean_value, error = validate_config_field(k, data[k])
                 if error is not None:
                     logging.getLogger("ha_alma_bot").error(
-                        f"config.json has an invalid value for '{k}' ({data[k]!r}): {error}. "
+                        f"config has an invalid value for '{k}' ({data[k]!r}): {error}. "
                         f"Keeping the previous value rather than applying it."
                     )
                     continue
@@ -203,10 +219,7 @@ class Config:
         if config_path is None:
             config_path = os.path.join(BOT_INSTANCE_DIR, "config.json")
         cfg = cls(config_path=config_path)
-        if os.path.exists(config_path):
-            cfg.reload_editable(allow_symbol_interval_change=True)
-        else:
-            cfg.save_editable()
+        cfg.reload_editable(allow_symbol_interval_change=True)
         return cfg
 
 
@@ -352,27 +365,57 @@ class BotState:
     tp_level: int = 0                   # how many TP levels have been hit so far (0 = none yet)
     last_resized_qty: Optional[float] = None  # qty of last successful protective order resize (prevents resize loops)
 
+    def get_symbol_from_env(self) -> str:
+        try:
+            return os.path.basename(os.path.abspath(BOT_INSTANCE_DIR)).upper()
+        except Exception:
+            return "BTCUSDT"
+
     def save(self, path: str):
+        # Save to local file cache
         atomic_write_json(path, asdict(self))
+        # Save to DB
+        try:
+            from app.core.db import save_db_state
+            save_db_state(self.get_symbol_from_env(), asdict(self))
+        except Exception as e:
+            logging.getLogger("ha_alma_bot").error(f"Failed to save state to DB: {e}")
 
     @classmethod
     def load(cls, path: str) -> "BotState":
-        if os.path.exists(path):
+        # Resolve symbol
+        symbol = "BTCUSDT"
+        try:
+            symbol = os.path.basename(os.path.abspath(BOT_INSTANCE_DIR)).upper()
+        except Exception:
+            pass
+
+        # Try DB first
+        data = None
+        try:
+            from app.core.db import get_db_state
+            data = get_db_state(symbol)
+        except Exception as e:
+            logging.getLogger("ha_alma_bot").error(f"Failed to read state from DB: {e}")
+
+        # Fallback to local bot_state.json file
+        if not data and os.path.exists(path):
             try:
                 with open(path) as f:
                     data = json.load(f)
-                return cls(**data)
             except (json.JSONDecodeError, TypeError, OSError) as e:
-                # Corrupted/truncated/unreadable state file (e.g. power loss mid-write
-                # before atomic saves were in place, or disk corruption). Starting fresh
-                # here is SAFE specifically because TradingBot.reconcile_on_startup()
-                # independently re-derives the true state from Binance itself right
-                # after this loads - it does not blindly trust whatever this returns.
                 logging.getLogger("ha_alma_bot").error(
                     f"bot_state.json is corrupted or unreadable ({e}). "
                     f"Starting from a blank state - startup reconciliation against "
                     f"Binance will rebuild the real position/order state if one exists."
                 )
+                return cls()
+
+        if data:
+            try:
+                return cls(**data)
+            except Exception as e:
+                logging.getLogger("ha_alma_bot").error(f"Failed parsing state data: {e}")
                 return cls()
         return cls()
 

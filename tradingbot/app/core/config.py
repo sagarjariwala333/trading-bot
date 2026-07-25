@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     BINANCE_API_SECRET: str = ""
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    DATABASE_URL: str = ""
 
     # Bot settings
     DATA_DIR: str = "data"

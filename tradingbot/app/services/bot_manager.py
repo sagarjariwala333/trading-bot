@@ -8,6 +8,10 @@ from typing import Dict, List, Optional, Any
 from app.core.config import settings
 from app.trading_engine.bot import Config, validate_config_field, atomic_write_json
 from app.schemas.bot import BotStateSchema, LiveStatusSchema, BotStatusResponseSchema
+from app.core.db import (
+    get_db_config, save_db_config, get_db_state, save_db_state, set_bot_active_status
+)
+
 
 class BotManager:
     # Class-level dictionary to keep track of active subprocesses: {symbol: subprocess.Popen}
@@ -52,11 +56,22 @@ class BotManager:
 
         paths = cls.get_paths(symbol_clean)
         
-        # Ensure config.json exists with default settings for this symbol
-        if not os.path.exists(paths["config"]):
+        # Restore config and state from DB to local disk if they exist
+        db_cfg = get_db_config(symbol_clean)
+        if db_cfg:
+            atomic_write_json(paths["config"], db_cfg)
+        else:
             cfg = Config(config_path=paths["config"])
             cfg.symbol = symbol_clean
             cfg.save_editable()
+            save_db_config(symbol_clean, cfg.to_editable_dict())
+
+        db_state = get_db_state(symbol_clean)
+        if db_state:
+            atomic_write_json(paths["state"], db_state)
+
+        # Mark bot as active in DB
+        set_bot_active_status(symbol_clean, True)
 
         # Build env variables
         env = os.environ.copy()
@@ -109,6 +124,9 @@ class BotManager:
             
             if symbol_clean in cls._processes:
                 del cls._processes[symbol_clean]
+            
+            # Mark bot as inactive in DB
+            set_bot_active_status(symbol_clean, False)
             return True
         return False
 
@@ -150,7 +168,8 @@ class BotManager:
         paths = cls.get_paths(symbol_clean)
         running = cls.is_running(symbol_clean)
         
-        state_data = cls.read_json_safe(paths["state"], {})
+        # Fallback to local files if DB read returns nothing
+        state_data = get_db_state(symbol_clean) or cls.read_json_safe(paths["state"], {})
         status_data = cls.read_json_safe(paths["status"], {})
         logs = cls.tail_log_lines(paths["log"], log_lines)
 
@@ -180,14 +199,17 @@ class BotManager:
         symbol_clean = symbol.strip().upper()
         paths = cls.get_paths(symbol_clean)
         
-        # Load from config or create defaults if it doesn't exist
-        if not os.path.exists(paths["config"]):
-            cfg = Config(config_path=paths["config"])
-            cfg.symbol = symbol_clean
-            cfg.save_editable()
-            return cfg.to_editable_dict()
-        
-        return cls.read_json_safe(paths["config"], {})
+        # Load from DB primarily
+        db_cfg = get_db_config(symbol_clean)
+        if db_cfg:
+            return db_cfg
+            
+        # Fallback/create defaults if not exists
+        cfg = Config(config_path=paths["config"])
+        cfg.symbol = symbol_clean
+        cfg.save_editable()
+        save_db_config(symbol_clean, cfg.to_editable_dict())
+        return cfg.to_editable_dict()
 
     @classmethod
     def update_config(cls, symbol: str, new_config: Dict[str, Any]) -> tuple:
@@ -198,8 +220,6 @@ class BotManager:
         clean = {}
         errors = []
         for k, v in new_config.items():
-            # Don't let users edit symbol/interval through config updates if they are locked by other rules, 
-            # but allow validation
             clean_value, error = validate_config_field(k, v)
             if error is not None:
                 errors.append(error)
@@ -209,9 +229,11 @@ class BotManager:
         existing.update(clean)
         
         try:
+            # Write to both database and local config cache
+            save_db_config(symbol_clean, existing)
             atomic_write_json(paths["config"], existing)
             return existing, errors
-        except OSError as e:
+        except Exception as e:
             raise RuntimeError(f"Could not save config: {e}")
 
     @classmethod
@@ -229,7 +251,9 @@ class BotManager:
         defaults["interval"] = preserved_interval
         
         try:
+            # Write to both database and local config cache
+            save_db_config(symbol_clean, defaults)
             atomic_write_json(paths["config"], defaults)
             return defaults
-        except OSError as e:
+        except Exception as e:
             raise RuntimeError(f"Could not reset config: {e}")

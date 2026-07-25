@@ -13,6 +13,27 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
 
+@app.on_event("startup")
+def startup_db_and_resume_bots():
+    from app.core.db import init_db, get_active_bots
+    from app.services.bot_manager import BotManager
+    import logging
+    
+    # Initialize DB
+    init_db()
+    
+    # Auto-resume bots
+    active_symbols = get_active_bots()
+    logger = logging.getLogger("ha_alma_bot")
+    logger.info(f"Auto-resuming active bots on startup: {active_symbols}")
+    for symbol in active_symbols:
+        try:
+            BotManager.start_bot(symbol)
+            logger.info(f"Successfully auto-resumed bot for {symbol}")
+        except Exception as e:
+            logger.error(f"Failed to auto-resume bot for {symbol}: {e}")
+
+
 # Set up CORS middleware for React frontend integration
 if settings.CORS_ORIGINS:
     app.add_middleware(

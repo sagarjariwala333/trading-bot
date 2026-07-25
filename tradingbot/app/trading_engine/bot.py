@@ -350,6 +350,7 @@ class BotState:
     atr_at_signal: Optional[float] = None
     signal_candle_time: Optional[int] = None   # ms open_time of the candle that triggered entry
     tp_level: int = 0                   # how many TP levels have been hit so far (0 = none yet)
+    last_resized_qty: Optional[float] = None  # qty of last successful protective order resize (prevents resize loops)
 
     def save(self, path: str):
         atomic_write_json(path, asdict(self))
@@ -697,11 +698,21 @@ class ExchangeGateway:
         return 0.0
 
     def get_order_status(self, order_id: int) -> Optional[dict]:
-        try:
-            return self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
-        except Exception as e:
-            self.log.warning(f"Could not fetch order {order_id}: {e}")
+        """Get order status. Return None only if order doesn't exist (filled/cancelled),
+        raise exception if query itself failed (network/API issue)."""
+        if not order_id:
             return None
+        try:
+            status = self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
+            return status
+        except Exception as e:
+            error_code = self._binance_error_code(e)
+            if error_code == -2013:
+                # Order doesn't exist (filled/cancelled/expired) - return None without retrying
+                self.log.debug(f"Order {order_id} no longer exists on Binance (filled/cancelled)")
+                return None
+            # For other errors (network, etc), re-raise so _call retries happen
+            raise
 
     def get_open_orders(self) -> list:
         """
@@ -717,16 +728,51 @@ class ExchangeGateway:
             return []
 
     def cancel_order(self, order_id: int):
+        """Cancel an order. Handle -2011 (already gone) gracefully without retry."""
         if not order_id:
             return
         try:
             self._call(self.client.futures_cancel_order, symbol=self.cfg.symbol, orderId=order_id)
-        except Exception:
+            self.log.info(f"Cancelled order {order_id}")
+        except Exception as e:
+            error_code = self._binance_error_code(e)
+            if error_code == -2011:
+                self.log.info(f"Order {order_id} already gone (was filled/cancelled on Binance before we could cancel)")
+                return
+
+            # Some Binance conditional orders are represented as algo orders. Try the
+            # algo-cancel endpoint as a fallback instead of treating the cancel as a
+            # hard failure.
             try:
                 if hasattr(self.client, "futures_cancel_algo_order"):
                     self._call(self.client.futures_cancel_algo_order, symbol=self.cfg.symbol, algoId=order_id)
-            except Exception as e:
-                self.log.info(f"Cancel order {order_id} skipped/failed (likely already gone): {e}")
+                    self.log.info(f"Cancelled algo order {order_id}")
+                else:
+                    raise RuntimeError("Binance client does not expose futures_cancel_algo_order")
+            except Exception as algo_e:
+                algo_code = self._binance_error_code(algo_e)
+                if algo_code == -2011:
+                    self.log.info(f"Algo order {order_id} already gone")
+                else:
+                    self.log.warning(f"Could not cancel order {order_id} (tried both regular and algo): {e}")
+            
+    def _binance_error_code(self, exc: Exception) -> Optional[int]:
+        """Extract Binance error code from exception if present."""
+        try:
+            if hasattr(exc, 'code'):
+                return exc.code
+            if hasattr(exc, 'response') and isinstance(exc.response, dict):
+                return exc.response.get('code')
+            # Try to extract from string representation
+            exc_str = str(exc)
+            if 'code' in exc_str and ':' in exc_str:
+                import re
+                match = re.search(r'code[:\s]*(-?\d+)', exc_str)
+                if match:
+                    return int(match.group(1))
+        except (AttributeError, ValueError, TypeError):
+            pass
+        return None
 
     # ---- order placement --------------------------------------------------
     def _new_client_order_id(self) -> str:
@@ -740,6 +786,56 @@ class ExchangeGateway:
         suffix = uuid.uuid4().hex[:8]
         return f"{CLIENT_ORDER_ID_PREFIX}{int(time.time() * 1000)}{suffix}"
 
+    def _extract_order_ref(self, order: dict) -> tuple:
+        """
+        Binance returns either a regular orderId (normal limit/market orders) or an
+        algoId (conditional/stop-loss orders). Normalize both into a single usable
+        identifier that the rest of the bot can persist and cancel later.
+        """
+        if not isinstance(order, dict):
+            raise TypeError("Order response must be a dict")
+
+        for key in ("orderId",):
+            value = order.get(key)
+            if value not in (None, ""):
+                return value, "order"
+
+        for key in ("algoId",):
+            value = order.get(key)
+            if value not in (None, ""):
+                return value, "algo"
+
+        for key in ("clientOrderId",):
+            value = order.get(key)
+            if value not in (None, ""):
+                return value, "order"
+
+        for key in ("clientAlgoId",):
+            value = order.get(key)
+            if value not in (None, ""):
+                return value, "algo"
+
+        raise KeyError("Could not find orderId/algoId in Binance order response")
+
+    def validate_sl_price(self, direction: str, sl_price: float, mark_price: float) -> tuple:
+        """
+        Validate that SL price is on the correct side of market to avoid -2021 error.
+        For LONG (SELL stop): sl_price must be BELOW mark_price
+        For SHORT (BUY stop): sl_price must be ABOVE mark_price
+        
+        Returns (is_valid, message)
+        """
+        if direction == "LONG":
+            if sl_price >= mark_price:
+                gap = sl_price - mark_price
+                return False, f"LONG SL at {sl_price:.2f} is ABOVE market {mark_price:.2f} (gap={gap:.2f}) - would immediately trigger"
+            return True, None
+        else:  # SHORT
+            if sl_price <= mark_price:
+                gap = mark_price - sl_price
+                return False, f"SHORT SL at {sl_price:.2f} is BELOW market {mark_price:.2f} (gap={gap:.2f}) - would immediately trigger"
+            return True, None
+
     def place_entry_limit(self, side: str, price: float, qty: float) -> int:
         order = self._call(
             self.client.futures_create_order,
@@ -748,9 +844,12 @@ class ExchangeGateway:
             quantity=self.round_qty(qty), price=self.round_price(price),
             newClientOrderId=self._new_client_order_id(),
         )
+        order_ref, _ = self._extract_order_ref(order)
         self.log.info("Raw entry order response: %s", order)
-        self.log.info("Saving entry orderId=%s clientOrderId=%s", order.get("orderId"), order.get("clientOrderId"))
-        return order["orderId"]
+        self.log.info("Saving entry orderId=%s clientOrderId=%s",
+                      order.get("orderId") or order.get("algoId"),
+                      order.get("clientOrderId") or order.get("clientAlgoId"))
+        return order_ref
 
     def place_stop_market(self, side: str, stop_price: float, qty: float) -> int:
         order = self._call(
@@ -761,9 +860,12 @@ class ExchangeGateway:
             reduceOnly=True,
             newClientOrderId=self._new_client_order_id(),
         )
+        order_ref, _ = self._extract_order_ref(order)
         self.log.info("Raw SL response: %s", order)
-        self.log.info("Saving SL orderId=%s clientOrderId=%s", order.get("orderId"), order.get("clientOrderId"))
-        return order["orderId"]
+        self.log.info("Saving SL orderId=%s clientOrderId=%s",
+                      order.get("orderId") or order.get("algoId"),
+                      order.get("clientOrderId") or order.get("clientAlgoId"))
+        return order_ref
 
     def place_tp_limit(self, side: str, price: float, qty: float) -> int:
         order = self._call(
@@ -774,7 +876,8 @@ class ExchangeGateway:
             reduceOnly=True,
             newClientOrderId=self._new_client_order_id(),
         )
-        return order["orderId"]
+        order_ref, _ = self._extract_order_ref(order)
+        return order_ref
 
     def place_market_close(self, side: str, qty: float) -> int:
         order = self._call(
@@ -784,7 +887,8 @@ class ExchangeGateway:
             reduceOnly=True,
             newClientOrderId=self._new_client_order_id(),
         )
-        return order["orderId"]
+        order_ref, _ = self._extract_order_ref(order)
+        return order_ref
 
 
 # --------------------------------------------------------------------------
@@ -1510,6 +1614,21 @@ class TradingBot:
         # window has no fallback. Having both an old and a new SL briefly overlap is
         # harmless (Binance's reduce-only semantics cap fills at the actual position
         # size, so there's no double-close risk) - having NEITHER is not.
+        
+        # NEW FIX 1: Validate SL price against current mark price to prevent -2021 errors
+        try:
+            mark_price = self.ex.get_current_price()
+            is_valid, error_msg = self.validate_sl_price(direction, sl_price, mark_price)
+            if not is_valid:
+                self.log.warning(f"SL price validation failed: {error_msg}. "
+                                f"Keeping old SL in place, will retry next cycle.")
+                self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {error_msg}")
+                return  # Keep old SL, retry next cycle
+            self.log.info(f"SL price validated: {sl_price:.2f} is safe for market {mark_price:.2f}")
+        except Exception as e:
+            self.log.warning(f"Could not fetch mark price for SL validation: {e}. "
+                            f"Placing SL anyway but with increased risk.")
+        
         try:
             new_sl_id = self.ex.place_stop_market(close_side, sl_price, total_qty)
         except Exception as e:
@@ -1544,6 +1663,12 @@ class TradingBot:
         else:
             self.log.warning(f"SL updated to {sl_price:.2f} (qty {total_qty:.6f}), but TP placement "
                               f"failed - old TP order {old_tp_id} remains active as fallback.")
+        
+        # NEW FIX 4: Cache the position qty we just resized protective orders for.
+        # This prevents infinite resize loops when queries return None (distinguishing
+        # between actual position changes vs query failures).
+        self.state.last_resized_qty = total_qty
+        self.log.debug(f"Cached protective order qty: {total_qty:.6f} for next reconciliation check")
 
     def _reconcile_protective_orders(self, entry_price: float, pos_amt: float):
         """If position size changed without a TP fill causing it (2nd entry filled late,
@@ -1561,7 +1686,30 @@ class TradingBot:
         except Exception:
             qty_tolerance = 1e-6  # conservative fallback if the filter lookup itself fails
 
-        sl_status = self.ex.get_order_status(self.state.sl_order_id) if self.state.sl_order_id else None
+        # NEW FIX 4: Check if position size differs from cached value.
+        # If we have a cached value (from last successful resize), only proceed if actual qty
+        # differs significantly from cached qty (not just a query failure causing None).
+        if self.state.last_resized_qty is not None:
+            qty_diff = abs(total_qty - self.state.last_resized_qty)
+            if qty_diff <= qty_tolerance:
+                self.log.debug(f"Position qty {total_qty:.6f} matches cached {self.state.last_resized_qty:.6f} "
+                              f"(within tolerance {qty_tolerance:.6f}) - no resize needed")
+                return
+            else:
+                self.log.info(f"Position qty changed: cached={self.state.last_resized_qty:.6f}, "
+                             f"actual={total_qty:.6f}, diff={qty_diff:.6f} > tolerance={qty_tolerance:.6f}")
+
+        # NEW FIX 2: Distinguish between -2013 (order gone) and network errors.
+        # get_order_status now:
+        # - Returns None if -2013 (order filled/cancelled, no retry)
+        # - Raises exception on network errors (so _call retries)
+        try:
+            sl_status = self.ex.get_order_status(self.state.sl_order_id) if self.state.sl_order_id else None
+        except Exception as e:
+            # Network error - log but don't resize, will retry next cycle
+            self.log.debug(f"Could not query SL status (network/API issue): {e}. Will retry next cycle.")
+            return
+        
         needs_refresh = (
             sl_status is None
             or sl_status.get("status") not in ("NEW", "PARTIALLY_FILLED")
@@ -1575,9 +1723,14 @@ class TradingBot:
     def _cancel_stale_entry_orders(self):
         for oid in (self.state.entry1_order_id, self.state.entry2_order_id):
             if oid:
-                status = self.ex.get_order_status(oid)
-                if status and status.get("status") == "NEW":
-                    self.ex.cancel_order(oid)
+                try:
+                    status = self.ex.get_order_status(oid)
+                    if status and status.get("status") == "NEW":
+                        self.ex.cancel_order(oid)
+                except Exception as e:
+                    # Network error querying order - will retry next cycle
+                    self.log.debug(f"Could not query entry order {oid}: {e}")
+                    pass
 
     def _cancel_all_remaining_orders(self):
         for oid in (self.state.entry1_order_id, self.state.entry2_order_id,

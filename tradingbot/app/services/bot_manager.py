@@ -61,6 +61,8 @@ class BotManager:
         # Build env variables
         env = os.environ.copy()
         env["BOT_INSTANCE_DIR"] = cls.get_instance_dir(symbol_clean)
+        env["PYTHONUNBUFFERED"] = "1"
+        env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         
         # Inject API keys from Settings if they are set
         if settings.BINANCE_API_KEY:
@@ -81,7 +83,7 @@ class BotManager:
             env=env,
             cwd=os.path.abspath(settings.DATA_DIR),
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=sys.stderr,
         )
         cls._processes[symbol_clean] = process
         return True

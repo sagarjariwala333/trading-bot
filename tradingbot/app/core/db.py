@@ -75,7 +75,7 @@ def save_db_config(symbol: str, config_data: dict) -> None:
     """Save/update bot configuration in the database."""
     symbol_clean = symbol.strip().upper()
     is_sqlite = db_url.startswith("sqlite")
-    serialized = json.dumps(config_data) if is_sqlite else config_data
+    serialized = json.dumps(config_data)
     
     with engine.begin() as conn:
         if is_sqlite:
@@ -110,7 +110,7 @@ def save_db_state(symbol: str, state_data: dict) -> None:
     """Save/update bot state in the database."""
     symbol_clean = symbol.strip().upper()
     is_sqlite = db_url.startswith("sqlite")
-    serialized = json.dumps(state_data) if is_sqlite else state_data
+    serialized = json.dumps(state_data)
     
     with engine.begin() as conn:
         if is_sqlite:

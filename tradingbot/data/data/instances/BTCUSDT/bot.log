@@ -1,0 +1,312 @@
+2026-07-25 20:05:30,941 | INFO | Clock resynced against Binance - offset now -58860ms.
+2026-07-25 20:05:31,092 | ERROR | futures_get_position_mode failed with non-retryable error (-2015): APIError(code=-2015): Invalid API-key, IP, or permissions for action. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-25 20:05:31,093 | ERROR | Startup setup failed - the bot will NOT start trading: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 635, in verify_one_way_mode
+    mode = self._call(self.client.futures_get_position_mode)
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 518, in _call
+    return fn(*args, **kwargs)
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 8488, in futures_get_position_mode
+    return self._request_futures_api("get", "positionSide/dual", True, data=params)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 148, in _request_futures_api
+    return self._request(method, uri, signed, force_params, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 111, in _request
+    return self._handle_response(self.response)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 120, in _handle_response
+    raise BinanceAPIException(response, response.status_code, response.text)
+binance.exceptions.BinanceAPIException: APIError(code=-2015): Invalid API-key, IP, or permissions for action
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 1064, in run_forever
+    self.ex.setup_symbol()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 605, in setup_symbol
+    self.verify_one_way_mode()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 637, in verify_one_way_mode
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+2026-07-25 20:05:54,269 | INFO | Clock resynced against Binance - offset now -58889ms.
+2026-07-25 20:05:54,426 | ERROR | futures_get_position_mode failed with non-retryable error (-2015): APIError(code=-2015): Invalid API-key, IP, or permissions for action. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-25 20:05:54,426 | ERROR | Startup setup failed - the bot will NOT start trading: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 635, in verify_one_way_mode
+    mode = self._call(self.client.futures_get_position_mode)
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 518, in _call
+    return fn(*args, **kwargs)
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 8488, in futures_get_position_mode
+    return self._request_futures_api("get", "positionSide/dual", True, data=params)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 148, in _request_futures_api
+    return self._request(method, uri, signed, force_params, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 111, in _request
+    return self._handle_response(self.response)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 120, in _handle_response
+    raise BinanceAPIException(response, response.status_code, response.text)
+binance.exceptions.BinanceAPIException: APIError(code=-2015): Invalid API-key, IP, or permissions for action
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 1064, in run_forever
+    self.ex.setup_symbol()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 605, in setup_symbol
+    self.verify_one_way_mode()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 637, in verify_one_way_mode
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+2026-07-25 20:06:10,173 | INFO | Clock resynced against Binance - offset now -58862ms.
+2026-07-25 20:06:10,323 | ERROR | futures_get_position_mode failed with non-retryable error (-2015): APIError(code=-2015): Invalid API-key, IP, or permissions for action. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-25 20:06:10,324 | ERROR | Startup setup failed - the bot will NOT start trading: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 635, in verify_one_way_mode
+    mode = self._call(self.client.futures_get_position_mode)
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 518, in _call
+    return fn(*args, **kwargs)
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 8488, in futures_get_position_mode
+    return self._request_futures_api("get", "positionSide/dual", True, data=params)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 148, in _request_futures_api
+    return self._request(method, uri, signed, force_params, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 111, in _request
+    return self._handle_response(self.response)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 120, in _handle_response
+    raise BinanceAPIException(response, response.status_code, response.text)
+binance.exceptions.BinanceAPIException: APIError(code=-2015): Invalid API-key, IP, or permissions for action
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 1064, in run_forever
+    self.ex.setup_symbol()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 605, in setup_symbol
+    self.verify_one_way_mode()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 637, in verify_one_way_mode
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+2026-07-25 20:06:28,100 | INFO | Clock resynced against Binance - offset now -58955ms.
+2026-07-25 20:06:28,282 | ERROR | futures_get_position_mode failed with non-retryable error (-2015): APIError(code=-2015): Invalid API-key, IP, or permissions for action. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-25 20:06:28,283 | ERROR | Startup setup failed - the bot will NOT start trading: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 635, in verify_one_way_mode
+    mode = self._call(self.client.futures_get_position_mode)
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 518, in _call
+    return fn(*args, **kwargs)
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 8488, in futures_get_position_mode
+    return self._request_futures_api("get", "positionSide/dual", True, data=params)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 148, in _request_futures_api
+    return self._request(method, uri, signed, force_params, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 111, in _request
+    return self._handle_response(self.response)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 120, in _handle_response
+    raise BinanceAPIException(response, response.status_code, response.text)
+binance.exceptions.BinanceAPIException: APIError(code=-2015): Invalid API-key, IP, or permissions for action
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 1064, in run_forever
+    self.ex.setup_symbol()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 605, in setup_symbol
+    self.verify_one_way_mode()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 637, in verify_one_way_mode
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+2026-07-25 20:06:30,364 | INFO | Clock resynced against Binance - offset now -58861ms.
+2026-07-25 20:06:30,513 | ERROR | futures_get_position_mode failed with non-retryable error (-2015): APIError(code=-2015): Invalid API-key, IP, or permissions for action. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-25 20:06:30,514 | ERROR | Startup setup failed - the bot will NOT start trading: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 635, in verify_one_way_mode
+    mode = self._call(self.client.futures_get_position_mode)
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 518, in _call
+    return fn(*args, **kwargs)
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 8488, in futures_get_position_mode
+    return self._request_futures_api("get", "positionSide/dual", True, data=params)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 148, in _request_futures_api
+    return self._request(method, uri, signed, force_params, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 111, in _request
+    return self._handle_response(self.response)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\SAGAR\AppData\Local\Programs\Python\Python313\Lib\site-packages\binance\client.py", line 120, in _handle_response
+    raise BinanceAPIException(response, response.status_code, response.text)
+binance.exceptions.BinanceAPIException: APIError(code=-2015): Invalid API-key, IP, or permissions for action
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 1064, in run_forever
+    self.ex.setup_symbol()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 605, in setup_symbol
+    self.verify_one_way_mode()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\trading-proj\tradingbot\app\trading_engine\bot.py", line 637, in verify_one_way_mode
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Could not verify Binance position mode (one-way vs hedge): APIError(code=-2015): Invalid API-key, IP, or permissions for action. This bot's entire position-tracking model depends on knowing this for certain before it ever touches an order - refusing to start rather than proceeding on an unconfirmed assumption. Check your API connectivity/credentials and restart.
+2026-07-25 20:17:20,029 | INFO | Clock resynced against Binance - offset now -58858ms.
+2026-07-25 20:17:20,242 | INFO | Clock resynced against Binance - offset now -58915ms.
+2026-07-25 20:17:22,275 | INFO | Clock resynced against Binance - offset now -58860ms.
+2026-07-25 20:17:22,426 | INFO | Clock resynced against Binance - offset now -58859ms.
+2026-07-25 20:17:22,893 | INFO | Bot started. State on load: BotState(status='IDLE', direction=None, entry1_order_id=None, entry2_order_id=None, sl_order_id=None, tp_order_id=None, atr_at_signal=None, signal_candle_time=None, tp_level=0)
+2026-07-25 20:17:22,893 | INFO | Running startup reconciliation against Binance...
+2026-07-25 20:17:23,316 | INFO | Reconciliation: flat, matches saved state. Nothing to do.
+2026-07-25 20:17:23,486 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:47:42,228 | INFO | Clock resynced against Binance - offset now -58851ms.
+2026-07-25 20:47:42,384 | INFO | Clock resynced against Binance - offset now -58851ms.
+2026-07-25 20:47:42,860 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:45,033 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:47,193 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:49,194 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:49,194 | INFO | Bot started. State on load: BotState(status='IDLE', direction=None, entry1_order_id=None, entry2_order_id=None, sl_order_id=None, tp_order_id=None, atr_at_signal=None, signal_candle_time=None, tp_level=0)
+2026-07-25 20:47:49,194 | INFO | Running startup reconciliation against Binance...
+2026-07-25 20:47:49,504 | INFO | Reconciliation: flat, matches saved state. Nothing to do.
+2026-07-25 20:47:49,727 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:47:50,202 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:52,364 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:54,521 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:56,522 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:47:56,676 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:47:57,112 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:47:59,268 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:01,420 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:03,421 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:19,073 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:48:19,548 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:21,717 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:23,890 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:25,891 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:26,048 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:48:26,198 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:28,354 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:30,507 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:32,507 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:48,018 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:48:48,485 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:50,650 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:52,830 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:54,831 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:48:54,985 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:48:55,141 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:57,293 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:48:59,443 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:01,444 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:16,940 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:49:17,421 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:19,610 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:21,772 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:23,773 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:23,932 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:49:24,089 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:26,249 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:28,404 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:30,404 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:45,911 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:49:46,387 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:48,561 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:50,754 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:52,754 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:49:52,910 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:49:53,061 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:55,214 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:57,453 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:49:59,454 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:15,110 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:50:15,596 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:17,769 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:19,924 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:21,925 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:22,079 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:50:22,235 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:24,388 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:26,540 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:28,541 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:44,044 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:50:44,520 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:46,700 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:48,874 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:50,875 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:50:51,031 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:50:51,183 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:53,338 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:55,493 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:50:57,494 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:13,068 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:51:13,747 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:15,902 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:18,075 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:20,076 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:20,231 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:51:20,381 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:22,652 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:24,869 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:26,870 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:42,541 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:51:43,010 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:45,173 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:47,357 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:49,357 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:51:49,511 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:51:49,660 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:51,835 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:54,088 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:51:56,089 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:11,723 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:52:12,205 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:14,360 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:16,616 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:18,616 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:18,766 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:52:18,915 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:21,121 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:23,271 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:25,272 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:40,735 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:52:41,305 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:43,486 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:45,656 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:47,657 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:52:47,807 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:52:47,958 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:50,108 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:52,336 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:52:54,337 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:53:09,800 | INFO | New SHORT signal on candle 1784937600000
+2026-07-25 20:53:10,247 | WARNING | futures_change_margin_type failed (attempt 1/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:53:12,409 | WARNING | futures_change_margin_type failed (attempt 2/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:53:14,588 | WARNING | futures_change_margin_type failed (attempt 3/3): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:53:16,589 | INFO | Margin type unchanged (likely already ISOLATED): APIError(code=-4046): No need to change margin type.
+2026-07-25 20:53:16,741 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-25 20:53:16,890 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:53:19,038 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:53:21,185 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-4014): Price not increased by tick size.
+2026-07-25 20:53:23,186 | ERROR | Failed to place entry 1: APIError(code=-4014): Price not increased by tick size.

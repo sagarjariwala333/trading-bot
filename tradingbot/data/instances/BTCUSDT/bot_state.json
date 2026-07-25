@@ -1,0 +1,11 @@
+{
+  "status": "IN_POSITION",
+  "direction": "LONG",
+  "entry1_order_id": 23985750032,
+  "entry2_order_id": 23985750482,
+  "sl_order_id": 1000000146025839,
+  "tp_order_id": 23985990585,
+  "atr_at_signal": 12.693075377558175,
+  "signal_candle_time": 1784998200000,
+  "tp_level": 3
+}

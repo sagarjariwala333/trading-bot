@@ -1,0 +1,161 @@
+2026-07-25 22:16:24,776 | INFO | Clock resynced against Binance - offset now -58935ms.
+2026-07-25 22:16:24,981 | INFO | Clock resynced against Binance - offset now -58880ms.
+2026-07-25 22:16:25,596 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='SHORT', entry1_order_id=23981848480, entry2_order_id=23981848958, sl_order_id=None, tp_order_id=None, atr_at_signal=16.787585047556476, signal_candle_time=1784996580000, tp_level=0)
+2026-07-25 22:16:25,596 | INFO | Running startup reconciliation against Binance...
+2026-07-25 22:16:26,007 | INFO | Reconciliation: pending entry order(s) from before restart are still live - resuming normal wait for fill.
+2026-07-25 22:17:15,648 | INFO | Flip complete - flat and reset. Now clear to open the new LONG trade.
+2026-07-25 22:17:15,651 | INFO | New LONG signal on candle 1784997960000
+2026-07-25 22:17:16,283 | INFO | LONG is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-25 22:17:16,971 | INFO | Placed entries: e1=64159.93 qty=0.038762 (id 23985085520), e2=64160.12 qty=0.038762 (id 23985085992), ATR=12.40
+2026-07-25 22:17:49,506 | INFO | Protective orders set: SL=64147.60 (qty 0.077400), next TP (level 1)=64166.20 (qty 0.023220)
+2026-07-25 22:17:49,512 | INFO | Position opened. amt=0.0774, merged entryPrice=64159.99999999999
+2026-07-25 22:17:50,586 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:17:52,843 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:17:55,042 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:17:57,043 | WARNING | Could not fetch order 1000000146021371: APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:13,400 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:15,629 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:17,821 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:19,821 | WARNING | Could not fetch order 1000000146021371: APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:19,822 | INFO | Position size changed without a TP fill (late 2nd entry fill, or a manual partial close) - resizing protective orders.
+2026-07-25 22:18:20,489 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:18:22,742 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:18:24,994 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:18:27,316 | INFO | Protective orders set: SL=64147.60 (qty 0.077400), next TP (level 1)=64166.20 (qty 0.023220)
+2026-07-25 22:18:28,171 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:30,421 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:32,572 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:34,573 | WARNING | Could not fetch order 1000000146021800: APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:50,679 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:53,052 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:55,207 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:57,209 | WARNING | Could not fetch order 1000000146021800: APIError(code=-2013): Order does not exist.
+2026-07-25 22:18:57,209 | INFO | Position size changed without a TP fill (late 2nd entry fill, or a manual partial close) - resizing protective orders.
+2026-07-25 22:18:57,748 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:18:59,914 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:19:02,066 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:19:04,521 | INFO | Protective orders set: SL=64147.60 (qty 0.077400), next TP (level 1)=64166.20 (qty 0.023220)
+2026-07-25 22:19:05,389 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:07,567 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:09,728 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:11,729 | WARNING | Could not fetch order 1000000146022236: APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:27,971 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:30,224 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:32,579 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:34,579 | WARNING | Could not fetch order 1000000146022236: APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:34,579 | INFO | Position size changed without a TP fill (late 2nd entry fill, or a manual partial close) - resizing protective orders.
+2026-07-25 22:19:35,243 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:19:37,494 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:19:39,656 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:19:42,104 | INFO | Protective orders set: SL=64147.60 (qty 0.077400), next TP (level 1)=64166.20 (qty 0.023220)
+2026-07-25 22:19:43,126 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:45,379 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:47,631 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:19:49,632 | WARNING | Could not fetch order 1000000146022725: APIError(code=-2013): Order does not exist.
+2026-07-25 22:20:05,756 | INFO | TP level 1 hit — ratcheting SL and advancing to the next ladder level.
+2026-07-25 22:20:06,781 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:08,937 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:11,184 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:13,524 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:15,697 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:17,943 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:20,297 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:22,551 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:24,804 | WARNING | futures_cancel_algo_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:26,808 | INFO | Cancel order 23985401426 skipped/failed (likely already gone): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:26,808 | INFO | Protective orders set: SL=64160.00 (qty 0.054200), next TP (level 2)=64172.40 (qty 0.016260)
+2026-07-25 22:20:27,672 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:20:29,924 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:20:32,177 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:20:34,177 | WARNING | Could not fetch order 1000000146023139: APIError(code=-2013): Order does not exist.
+2026-07-25 22:20:49,788 | INFO | Position closed. Cleaning up remaining orders and resetting state.
+2026-07-25 22:20:49,993 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:52,248 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:54,499 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:56,754 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:20:59,005 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:01,360 | WARNING | futures_cancel_algo_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:03,361 | INFO | Cancel order 23985085520 skipped/failed (likely already gone): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:03,613 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:05,867 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:08,116 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:10,372 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:12,624 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:14,876 | WARNING | futures_cancel_algo_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:16,877 | INFO | Cancel order 23985085992 skipped/failed (likely already gone): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:17,130 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:19,382 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:21,635 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:23,814 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:26,040 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:28,291 | WARNING | futures_cancel_algo_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:30,292 | INFO | Cancel order 1000000146023139 skipped/failed (likely already gone): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:30,545 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:32,706 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:34,948 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:37,201 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:39,409 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:41,808 | WARNING | futures_cancel_algo_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:43,808 | INFO | Cancel order 23985479743 skipped/failed (likely already gone): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:21:59,542 | INFO | New LONG signal on candle 1784998200000
+2026-07-25 22:22:00,294 | INFO | LONG is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-25 22:22:00,617 | INFO | Placed entries: e1=64173.70 qty=0.038735 (id 23985750032), e2=64182.38 qty=0.038730 (id 23985750482), ATR=12.69
+2026-07-25 22:23:23,493 | INFO | Protective orders set: SL=64169.61 (qty 0.018100), next TP (level 1)=64188.65 (qty 0.005430)
+2026-07-25 22:23:23,495 | INFO | Position opened. amt=0.0181, merged entryPrice=64182.29999999999
+2026-07-25 22:23:24,242 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:23:26,424 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:23:28,612 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:23:30,613 | WARNING | Could not fetch order 1000000146025604: APIError(code=-2013): Order does not exist.
+2026-07-25 22:23:46,635 | INFO | TP level 1 hit — ratcheting SL and advancing to the next ladder level.
+2026-07-25 22:23:47,817 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:23:50,015 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:23:52,266 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:23:54,726 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:23:56,890 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:23:59,047 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:24:01,251 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:24:03,426 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:24:05,681 | WARNING | futures_cancel_algo_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:24:07,682 | INFO | Cancel order 23985922359 skipped/failed (likely already gone): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:24:07,683 | INFO | Protective orders set: SL=64182.30 (qty 0.012700), next TP (level 2)=64194.99 (qty 0.003810)
+2026-07-25 22:24:08,753 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:10,982 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:13,157 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:15,158 | WARNING | Could not fetch order 1000000146025839: APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:31,647 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:33,866 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:36,094 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:38,095 | WARNING | Could not fetch order 1000000146025839: APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:38,095 | INFO | Position size changed without a TP fill (late 2nd entry fill, or a manual partial close) - resizing protective orders.
+2026-07-25 22:24:38,283 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:24:40,442 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:24:42,612 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:24:44,613 | ERROR | Failed to place new SL - leaving the OLD SL in place untouched: APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:24:45,372 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:47,565 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:49,768 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:24:51,769 | WARNING | Could not fetch order 1000000146025839: APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:07,529 | INFO | TP level 2 hit — ratcheting SL and advancing to the next ladder level.
+2026-07-25 22:25:07,984 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:10,172 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:12,335 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:14,336 | ERROR | Failed to place new SL - leaving the OLD SL in place untouched: APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:15,186 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:17,342 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:19,515 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:21,516 | WARNING | Could not fetch order 1000000146025839: APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:37,309 | INFO | TP level 3 hit — ratcheting SL and advancing to the next ladder level.
+2026-07-25 22:25:37,838 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:40,101 | WARNING | futures_create_order failed (attempt 2/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:42,266 | WARNING | futures_create_order failed (attempt 3/3): APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:44,267 | ERROR | Failed to place new SL - leaving the OLD SL in place untouched: APIError(code=-2021): Order would immediately trigger.
+2026-07-25 22:25:45,379 | WARNING | futures_get_order failed (attempt 1/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:47,527 | WARNING | futures_get_order failed (attempt 2/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:49,681 | WARNING | futures_get_order failed (attempt 3/3): APIError(code=-2013): Order does not exist.
+2026-07-25 22:25:51,682 | WARNING | Could not fetch order 1000000146025839: APIError(code=-2013): Order does not exist.
+2026-07-25 22:26:07,289 | INFO | Opposite signal (SHORT) seen while in a LONG trade. Flipping: market-closing entire position (qty 0.016800).
+2026-07-25 22:26:07,767 | WARNING | futures_cancel_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:26:09,924 | WARNING | futures_cancel_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:26:12,083 | WARNING | futures_cancel_order failed (attempt 3/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:26:14,261 | WARNING | futures_cancel_algo_order failed (attempt 1/3): APIError(code=-2011): Unknown order sent.
+2026-07-25 22:26:16,430 | WARNING | futures_cancel_algo_order failed (attempt 2/3): APIError(code=-2011): Unknown order sent.

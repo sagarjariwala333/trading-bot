@@ -1,0 +1,11 @@
+{
+  "status": "IDLE",
+  "direction": null,
+  "entry1_order_id": null,
+  "entry2_order_id": null,
+  "sl_order_id": null,
+  "tp_order_id": null,
+  "atr_at_signal": null,
+  "signal_candle_time": null,
+  "tp_level": 0
+}

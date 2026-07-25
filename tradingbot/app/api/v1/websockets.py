@@ -37,6 +37,11 @@ async def websocket_live_status(
             
     except WebSocketDisconnect:
         logger.info(f"WebSocket client disconnected for {symbol}")
+    except RuntimeError as e:
+        if "closed" in str(e).lower() or "handler is closed" in str(e).lower():
+            logger.info(f"WebSocket client disconnected (closed transport) for {symbol}")
+        else:
+            logger.error(f"RuntimeError in live status websocket for {symbol}: {e}")
     except Exception as e:
         logger.error(f"Error in live status websocket for {symbol}: {e}")
         try:

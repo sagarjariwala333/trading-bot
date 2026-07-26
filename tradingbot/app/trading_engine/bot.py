@@ -945,6 +945,8 @@ class ExchangeGateway:
             workingType="CONTRACT_PRICE",
             newClientOrderId=self._new_client_order_id(),
         )
+        order_ref, _ = self._extract_order_ref(order)
+        self.log.info("Raw SL response: %s", order)
         algo_id = order.get("algoId")
         order_id = order.get("orderId")
         id_str = f"algoId={algo_id}" if algo_id else f"orderId={order_id}"

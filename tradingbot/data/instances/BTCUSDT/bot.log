@@ -1,0 +1,30 @@
+2026-07-26 15:27:20,265 | INFO | Clock resynced against Binance - offset now -59316ms.
+2026-07-26 15:27:20,890 | INFO | Clock resynced against Binance - offset now -59373ms.
+2026-07-26 15:27:21,293 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-26 15:27:21,497 | INFO | Bot started. State on load: BotState(status='IN_POSITION', direction='LONG', entry1_order_id=None, entry2_order_id=None, sl_order_id=1000000146627794, tp_order_id=24132061457, atr_at_signal=23.194883170964154, signal_candle_time=1785058860000, tp_level=0, last_resized_qty=0.0758)
+2026-07-26 15:27:21,498 | INFO | Running startup reconciliation against Binance...
+2026-07-26 15:27:21,977 | WARNING | Reconciliation: found 24 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-26 15:27:22,227 | WARNING | Reconciliation: found an OPEN LONG position on BTCUSDT (qty 0.075800, entry 64510.45). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 15:27:22,228 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-26 15:27:22,830 | INFO | SL price validated: 64487.20 is safe for market 64521.18
+2026-07-26 15:27:23,033 | INFO | Raw SL response: {'algoId': 1000000146628247, 'clientAlgoId': 'x-Cb7ytekJ60e752e27ebba1c1d6c94d', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'SELL', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0758', 'algoStatus': 'NEW', 'triggerPrice': '64487.20', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785059783684, 'updateTime': 1785059783685, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-26 15:27:23,035 | INFO | Saving SL algoId=1000000146628247 clientOrderId=x-Cb7ytekJ60e752e27ebba1c1d6c94d
+2026-07-26 15:27:23,243 | INFO | Protective orders set: SL=64487.20 (qty 0.075800), next TP (level 1)=64522.05 (qty 0.022740)
+2026-07-26 15:28:55,399 | INFO | Opposite signal (SHORT) seen while in a LONG trade. Flipping: market-closing entire position (qty 0.075800).
+2026-07-26 15:28:56,014 | ERROR | futures_cancel_order failed with non-retryable error (-2011): APIError(code=-2011): Unknown order sent.. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-26 15:28:56,015 | INFO | Order already gone.
+2026-07-26 15:28:56,217 | ERROR | futures_cancel_order failed with non-retryable error (-2011): APIError(code=-2011): Unknown order sent.. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-26 15:28:56,218 | INFO | Order already gone.
+2026-07-26 15:28:56,600 | INFO | Flip complete - flat and reset. Now clear to open the new SHORT trade.
+2026-07-26 15:28:56,602 | INFO | New SHORT signal on candle 1785059820000
+2026-07-26 15:28:57,272 | INFO | SHORT is AGAINST the SMA(50) trend - using 20.00% margin per entry.
+2026-07-26 15:28:57,562 | INFO | Raw entry order response: {'orderId': 24132358929, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785059937274110c4f2e', 'price': '64517.40', 'origQty': '0.0303', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'SELL', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785059878120}
+2026-07-26 15:28:57,565 | INFO | Saving entry orderId=24132358929 clientOrderId=haqbot_1785059937274110c4f2e
+2026-07-26 15:28:57,857 | INFO | Raw entry order response: {'orderId': 24132359695, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785059937566f4b72e70', 'price': '64514.10', 'origQty': '0.0303', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'SELL', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785059878421}
+2026-07-26 15:28:57,858 | INFO | Saving entry orderId=24132359695 clientOrderId=haqbot_1785059937566f4b72e70
+2026-07-26 15:28:58,266 | INFO | Placed entries: e1=64517.41 qty=0.030319 (id 24132358929), e2=64514.15 qty=0.030321 (id 24132359695), ATR=19.35
+2026-07-26 15:29:15,163 | INFO | SL price validated: 64535.10 is safe for market 64515.94
+2026-07-26 15:29:15,376 | INFO | Raw SL response: {'algoId': 1000000146629249, 'clientAlgoId': 'x-Cb7ytekJ501e4e4f51a56573cc1da1', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'BUY', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0606', 'algoStatus': 'NEW', 'triggerPrice': '64535.10', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785059896004, 'updateTime': 1785059896005, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-26 15:29:15,377 | INFO | Saving SL algoId=1000000146629249 clientOrderId=x-Cb7ytekJ501e4e4f51a56573cc1da1
+2026-07-26 15:29:15,574 | INFO | Protective orders set: SL=64535.10 (qty 0.060600), next TP (level 1)=64506.07 (qty 0.018180)
+2026-07-26 15:29:15,576 | INFO | [POSITION OPENED] | Direction: SHORT | Symbol: BTCUSDT | Entry Price: 64515.75 | Entry Margin: $1954.83 | Leverage: 2x | Entry Time: 2026-07-26 09:57:00 UTC | Qty: 0.060600

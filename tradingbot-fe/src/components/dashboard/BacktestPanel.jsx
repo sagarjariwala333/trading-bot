@@ -30,9 +30,9 @@ export default function BacktestPanel({
   backtestResult,
 }) {
   return (
-    <Card className="border-white/[0.06] bg-[#0d1220]/80 backdrop-blur-xl shadow-xl shadow-black/30">
-      <CardHeader className="px-6 py-4 border-b border-white/[0.05]">
-        <CardTitle className="text-sm font-bold text-slate-300 uppercase tracking-wider">
+    <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30">
+      <CardHeader className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.05]">
+        <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">
           Backtesting Strategy Sandbox
         </CardTitle>
         <CardDescription>Simulate strategy on historical datasets</CardDescription>
@@ -44,7 +44,7 @@ export default function BacktestPanel({
           <div className="flex flex-col gap-1.5">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Dataset</Label>
             <Select value={selectedDataset} onValueChange={onDatasetChange}>
-              <SelectTrigger className="w-full bg-[#060913]/90 border-white/[0.08] text-slate-200">
+              <SelectTrigger className="w-full bg-slate-50 dark:bg-[#060913]/90 border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200">
                 <SelectValue placeholder="Select dataset…" />
               </SelectTrigger>
               <SelectContent>
@@ -60,14 +60,14 @@ export default function BacktestPanel({
           <div className="flex flex-col gap-1.5">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Initial Balance (USDT)</Label>
             <Input type="number" value={backtestBalance} onChange={(e) => onBalanceChange(e.target.value)}
-              className="bg-[#060913]/90 border-white/[0.08] text-slate-200" />
+              className="bg-slate-50 dark:bg-[#060913]/90 border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200" />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Leverage</Label>
             <Input type="number" value={backtestLeverage} min="1" max="125"
               onChange={(e) => onLeverageChange(e.target.value)}
-              className="bg-[#060913]/90 border-white/[0.08] text-slate-200" />
+              className="bg-slate-50 dark:bg-[#060913]/90 border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200" />
           </div>
 
           <Button onClick={onRun} disabled={isBacktesting}
@@ -79,21 +79,21 @@ export default function BacktestPanel({
         {/* Results */}
         {backtestResult && (
           <>
-            <Separator className="bg-white/[0.05]" />
+            <Separator className="bg-slate-200 dark:bg-white/[0.05]" />
             <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5">
               {/* Metrics table */}
-              <Card className="border-white/[0.06] bg-[#060913]/60">
-                <CardHeader className="px-4 py-3 border-b border-white/[0.05]">
-                  <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <Card className="border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-[#060913]/60">
+                <CardHeader className="px-4 py-3 border-b border-slate-200 dark:border-white/[0.05]">
+                  <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Performance Summary
                   </CardTitle>
                 </CardHeader>
                 <Table>
                   <TableBody>
                     {METRICS(backtestResult).map(({ label, val, color }) => (
-                      <TableRow key={label} className="border-white/[0.04] hover:bg-white/[0.02]">
+                      <TableRow key={label} className="border-slate-100 dark:border-white/[0.04] hover:bg-slate-100/50 dark:hover:bg-white/[0.02]">
                         <TableCell className="text-slate-500 py-2.5 px-4">{label}</TableCell>
-                        <TableCell className={cn('text-right font-bold py-2.5 px-4', color || 'text-slate-200')}>{val}</TableCell>
+                        <TableCell className={cn('text-right font-bold py-2.5 px-4', color || 'text-slate-800 dark:text-slate-200')}>{val}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -101,8 +101,8 @@ export default function BacktestPanel({
               </Card>
 
               {/* Equity chart */}
-              <Card className="border-white/[0.06] bg-[#060913]/60 p-5 flex flex-col gap-3">
-                <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <Card className="border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-[#060913]/60 p-5 flex flex-col gap-3">
+                <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Equity Growth Curve
                 </CardTitle>
                 <div className="flex-1 flex items-center justify-center">

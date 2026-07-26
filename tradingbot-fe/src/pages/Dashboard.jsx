@@ -119,7 +119,7 @@ export default function Dashboard() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#060913] text-slate-100">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-slate-100">
       <div className="max-w-[1920px] mx-auto px-6 py-6 flex flex-col gap-5">
 
         <AlertBanner

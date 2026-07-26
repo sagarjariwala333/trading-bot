@@ -18,8 +18,8 @@ const NUMERIC_FIELDS = [
 
 export default function ConfigPanel({ config, limits, isBotRunning, isConfigSaving, onChange, onSave, onReset }) {
   return (
-    <Card className="border-white/[0.06] bg-[#0d1220]/80 backdrop-blur-xl shadow-xl shadow-black/30 flex flex-col">
-      <CardHeader className="px-6 py-4 border-b border-white/[0.05]">
+    <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30 flex flex-col">
+      <CardHeader className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.05]">
         <CardTitle className="text-sm font-bold text-slate-300 uppercase tracking-wider">
           Strategy Configuration
         </CardTitle>
@@ -33,14 +33,14 @@ export default function ConfigPanel({ config, limits, isBotRunning, isConfigSavi
 
       {config ? (
         <form onSubmit={onSave} className="flex flex-col flex-1">
-          <CardContent className="grid grid-cols-2 gap-4 pt-5 flex-1">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 flex-1">
             {/* Timeframe — full width */}
-            <div className="col-span-2 flex flex-col gap-1.5">
+            <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5">
               <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
                 Candlestick Timeframe
               </Label>
               <Select value={config.interval} onValueChange={(v) => onChange('interval', v)} disabled={isBotRunning}>
-                <SelectTrigger className="w-full bg-[#060913]/90 border-white/[0.08] text-slate-200">
+                <SelectTrigger className="w-full bg-slate-50 dark:bg-[#060913]/90 border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -64,7 +64,7 @@ export default function ConfigPanel({ config, limits, isBotRunning, isConfigSavi
                     id={key} type="number" value={config[key]}
                     min={lim?.[0]} max={lim?.[1]}
                     onChange={(e) => onChange(key, e.target.value)}
-                    className="bg-[#060913]/90 border-white/[0.08] text-slate-200"
+                    className="bg-slate-50 dark:bg-[#060913]/90 border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200"
                   />
                   {key === 'leverage' && lim && (
                     <span className="text-[10px] text-slate-600">Range: {lim[0]}–{lim[1]}</span>

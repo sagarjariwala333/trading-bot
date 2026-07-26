@@ -5,19 +5,19 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 const CELLS = (liveStatus, symbol) => [
-  { label: 'Wallet Balance', value: liveStatus ? parseFloat(liveStatus.available_balance).toFixed(2) : '--', unit: 'USDT', color: 'text-white' },
-  { label: 'Position', value: liveStatus?.position_amt ? (Number(liveStatus.position_amt) > 0 ? 'LONG' : 'SHORT') : 'NONE', unit: '', color: liveStatus?.position_amt ? (Number(liveStatus.position_amt) > 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-400' },
-  { label: 'Mark Price', value: liveStatus?.mark_price > 0 ? parseFloat(liveStatus.mark_price).toFixed(2) : '--', unit: '', color: 'text-cyan-400' },
-  { label: 'Unrealized PnL', value: liveStatus?.unrealized_pnl != null ? parseFloat(liveStatus.unrealized_pnl).toFixed(4) : '0.0000', unit: 'USDT', color: liveStatus?.unrealized_pnl > 0 ? 'text-emerald-400' : liveStatus?.unrealized_pnl < 0 ? 'text-red-400' : 'text-slate-300' },
-  { label: 'Entry Price', value: liveStatus?.entry_price > 0 ? parseFloat(liveStatus.entry_price).toFixed(2) : '--', unit: '', color: 'text-white' },
-  { label: 'Stop Loss', value: liveStatus?.sl_price > 0 ? parseFloat(liveStatus.sl_price).toFixed(2) : '--', unit: '', color: 'text-orange-400' },
-  { label: 'Take Profit', value: liveStatus?.tp_price > 0 ? parseFloat(liveStatus.tp_price).toFixed(2) : '--', unit: '', color: 'text-emerald-400' },
-  { label: 'Leverage', value: liveStatus ? `${liveStatus.leverage}×` : '--', unit: '', color: 'text-violet-400' },
+  { label: 'Wallet Balance', value: liveStatus ? parseFloat(liveStatus.available_balance).toFixed(2) : '--', unit: 'USDT', color: 'text-slate-800 dark:text-white' },
+  { label: 'Position', value: liveStatus?.position_amt ? (Number(liveStatus.position_amt) > 0 ? 'LONG' : 'SHORT') : 'NONE', unit: '', color: liveStatus?.position_amt ? (Number(liveStatus.position_amt) > 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-500 dark:text-slate-400' },
+  { label: 'Mark Price', value: liveStatus?.mark_price > 0 ? parseFloat(liveStatus.mark_price).toFixed(2) : '--', unit: '', color: 'text-cyan-500 dark:text-cyan-400' },
+  { label: 'Unrealized PnL', value: liveStatus?.unrealized_pnl != null ? parseFloat(liveStatus.unrealized_pnl).toFixed(4) : '0.0000', unit: 'USDT', color: liveStatus?.unrealized_pnl > 0 ? 'text-emerald-500 dark:text-emerald-400' : liveStatus?.unrealized_pnl < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-300' },
+  { label: 'Entry Price', value: liveStatus?.entry_price > 0 ? parseFloat(liveStatus.entry_price).toFixed(2) : '--', unit: '', color: 'text-slate-800 dark:text-white' },
+  { label: 'Stop Loss', value: liveStatus?.sl_price > 0 ? parseFloat(liveStatus.sl_price).toFixed(2) : '--', unit: '', color: 'text-orange-500 dark:text-orange-400' },
+  { label: 'Take Profit', value: liveStatus?.tp_price > 0 ? parseFloat(liveStatus.tp_price).toFixed(2) : '--', unit: '', color: 'text-emerald-500 dark:text-emerald-400' },
+  { label: 'Leverage', value: liveStatus ? `${liveStatus.leverage}×` : '--', unit: '', color: 'text-violet-500 dark:text-violet-400' },
 ];
 
 function MetricCell({ label, value, unit, color }) {
   return (
-    <div className="flex flex-col gap-3 p-5 hover:bg-white/[0.02] transition-colors rounded-xl border border-white/[0.04] bg-slate-900/40">
+    <div className="flex flex-col gap-3 p-5 hover:bg-slate-100/50 dark:hover:bg-white/[0.02] transition-colors rounded-xl border border-slate-200 dark:border-white/[0.04] bg-slate-100/30 dark:bg-slate-900/40">
       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
       <div className="flex items-baseline gap-1.5">
         <span className={cn('text-2xl font-bold leading-none', color)}>{value}</span>
@@ -29,8 +29,8 @@ function MetricCell({ label, value, unit, color }) {
 
 export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStart, onStop }) {
   return (
-    <Card className="border-white/[0.06] dark:border-white/[0.06] bg-[#0d1220]/80 dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-xl shadow-black/30 dark:shadow-black/30 transition-colors duration-300">
-      <CardHeader className="flex items-center justify-between px-6 py-4 border-b border-white/[0.05] dark:border-white/[0.05]">
+    <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30 transition-colors duration-300">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-white/[0.05]">
         <div>
           <CardTitle>Live Exchange Status & Telemetry</CardTitle>
           <CardDescription>
@@ -38,12 +38,12 @@ export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStar
           </CardDescription>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 shrink-0">
           <Badge variant="outline" className="px-2 py-1 text-xs font-semibold text-emerald-400 border-emerald-500/50 bg-emerald-500/10">
             ● Running
           </Badge>
 
-          <div className="flex items-center gap-2 ml-2 pl-3 border-l border-white/10 dark:border-white/10">
+          <div className="flex items-center gap-2 pl-3 border-l border-white/10 dark:border-white/10">
             <Button
               size="sm"
               disabled={isBotRunning}

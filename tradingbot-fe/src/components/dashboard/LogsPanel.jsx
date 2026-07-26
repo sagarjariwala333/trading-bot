@@ -13,8 +13,8 @@ export default function LogsPanel({ logs }) {
   }, [logs]);
 
   return (
-    <Card className="border-white/[0.06] bg-[#0d1220]/80 backdrop-blur-xl shadow-xl shadow-black/30 flex flex-col">
-      <CardHeader className="px-6 py-4 border-b border-white/[0.05]">
+    <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30 flex flex-col">
+      <CardHeader className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.05]">
         <CardTitle className="text-sm font-bold text-slate-300 uppercase tracking-wider">
           Live Process Logs
         </CardTitle>
@@ -28,7 +28,7 @@ export default function LogsPanel({ logs }) {
       <CardContent className="p-0 flex-1">
         <div
           ref={containerRef}
-          className="h-[420px] overflow-y-auto p-5 bg-[#02050e] text-[12.5px] leading-relaxed flex flex-col gap-0.5"
+          className="h-[420px] overflow-y-auto p-5 bg-slate-950 dark:bg-[#02050e] text-[12.5px] leading-relaxed flex flex-col gap-0.5"
           style={{ fontFamily: "'JetBrains Mono', monospace", scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
         >
           {logs.length === 0 ? (

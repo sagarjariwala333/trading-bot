@@ -1,12 +1,12 @@
 {
-  "status": "IDLE",
-  "direction": null,
-  "entry1_order_id": null,
-  "entry2_order_id": null,
+  "status": "ENTRIES_PLACED",
+  "tp_level": 0,
+  "direction": "SHORT",
   "sl_order_id": null,
   "tp_order_id": null,
-  "atr_at_signal": null,
-  "signal_candle_time": null,
-  "tp_level": 0,
-  "last_resized_qty": null
+  "atr_at_signal": 27.204292104732424,
+  "entry1_order_id": 24134603815,
+  "entry2_order_id": 24134603818,
+  "last_resized_qty": null,
+  "signal_candle_time": 1785060720000
 }

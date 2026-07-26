@@ -576,7 +576,9 @@ class ExchangeGateway:
                 code = self._binance_error_code(e)
 
                 if code in NON_RETRYABLE_BINANCE_CODES:
-                    if code == -2013:
+                    if code == -2011:
+                        self.log.debug(f"{fn.__name__}: order already filled or cancelled (-2011)")
+                    elif code == -2013:
                         order_ref = kwargs.get("orderId") or kwargs.get("algoId")
                         if order_ref is None:
                             self.log.debug("Order not found in standard orderbook, checking algo orders...")
@@ -814,29 +816,41 @@ class ExchangeGateway:
         """Cancel an order. Handle -2011 (already gone) gracefully without retry."""
         if not order_id:
             return
-        try:
-            self._call(self.client.futures_cancel_order, symbol=self.cfg.symbol, orderId=order_id)
-            self.log.info(f"Cancelled order {order_id}")
-        except Exception as e:
-            error_code = self._binance_error_code(e)
-            if error_code == -2011:
-                self.log.info(f"Order already gone.")
-                return
 
-            # Some Binance conditional orders are represented as algo orders. Try the
-            # algo-cancel endpoint as a fallback instead of treating the cancel as a
-            # hard failure.
+        is_algo = order_id > 100000000000000
+        label = "algo order" if is_algo else "order"
+        self.log.info(f"Cancelling {label} {order_id}...")
+
+        if is_algo:
             try:
                 if hasattr(self.client, "futures_cancel_algo_order"):
                     self._call(self.client.futures_cancel_algo_order, symbol=self.cfg.symbol, algoId=order_id)
-                    self.log.info(f"Cancelled algo order {order_id}")
+                    self.log.info(f"Successfully cancelled algo order {order_id}")
+                    return
+            except Exception as e:
+                if self._binance_error_code(e) == -2011:
+                    self.log.info(f"Algo order {order_id} already gone (filled or auto-cancelled on Binance).")
+                    return
+
+        try:
+            self._call(self.client.futures_cancel_order, symbol=self.cfg.symbol, orderId=order_id)
+            self.log.info(f"Successfully cancelled order {order_id}")
+        except Exception as e:
+            error_code = self._binance_error_code(e)
+            if error_code == -2011:
+                self.log.info(f"Order {order_id} already gone (filled or auto-cancelled on Binance).")
+                return
+
+            try:
+                if hasattr(self.client, "futures_cancel_algo_order"):
+                    self._call(self.client.futures_cancel_algo_order, symbol=self.cfg.symbol, algoId=order_id)
+                    self.log.info(f"Successfully cancelled algo order {order_id}")
                 else:
                     raise RuntimeError("Binance client does not expose futures_cancel_algo_order")
             except Exception as algo_e:
                 algo_code = self._binance_error_code(algo_e)
                 if algo_code == -2011:
-                    self.log.info(f"Order already gone.")
-                    return
+                    self.log.info(f"Algo order {order_id} already gone (filled or auto-cancelled on Binance).")
                 else:
                     self.log.warning(f"Could not cancel order {order_id} (tried both regular and algo): {e}")
             

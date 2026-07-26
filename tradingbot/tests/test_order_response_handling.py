@@ -13,6 +13,9 @@ class DummyLogger:
     def error(self, *args, **kwargs):
         pass
 
+    def debug(self, *args, **kwargs):
+        pass
+
 
 def test_extract_order_ref_prefers_order_id():
     gateway = ExchangeGateway.__new__(ExchangeGateway)

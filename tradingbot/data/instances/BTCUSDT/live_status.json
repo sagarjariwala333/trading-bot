@@ -1,1 +1,26 @@
-{}
+{
+  "timestamp": 1785060461.9480622,
+  "symbol": "BTCUSDT",
+  "interval": "1m",
+  "leverage": 2,
+  "bot_status": "IN_POSITION",
+  "direction": "SHORT",
+  "tp_level": 0,
+  "position_amt": -0.0643,
+  "entry_price": 64497.549611197515,
+  "entry_margin": 2073.6,
+  "entry_time": "2026-07-26 10:05:00 UTC",
+  "mark_price": 64496.66960145,
+  "unrealized_pnl": 0.05658462676539202,
+  "available_balance": 2446.95234198,
+  "atr_at_signal": 21.686122374802885,
+  "current_adx": 33.90898049890973,
+  "adx_filter_enabled": false,
+  "adx_threshold": 25.0,
+  "sl_order_id": 1000000146634352,
+  "tp_order_id": 24133588455,
+  "sl_price": 64519.2,
+  "sl_qty": 0.0643,
+  "tp_price": 64486.7,
+  "tp_qty": 0.0192
+}

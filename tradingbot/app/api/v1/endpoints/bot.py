@@ -51,3 +51,15 @@ def get_bot_logs(
         return LogTailResponseSchema(logs=logs, line_count=len(logs))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching bot logs: {e}")
+
+
+@router.post("/clear", response_model=BotControlResponseSchema)
+def clear_bot_instance(symbol: str = Query("BTCUSDT", description="Symbol of the trading bot to clear")):
+    try:
+        success = BotManager.clear_instance(symbol)
+        if success:
+            return BotControlResponseSchema(success=True, message=f"Instance data, state, and logs for {symbol} cleared successfully.")
+        else:
+            return BotControlResponseSchema(success=False, message=f"Failed to clear instance for {symbol}.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clearing bot instance: {e}")

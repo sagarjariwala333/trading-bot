@@ -31,7 +31,7 @@ function MetricCell({ label, value, unit, color }) {
   );
 }
 
-export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStart, onStop }) {
+export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStart, onStop, onClear }) {
   return (
     <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30 transition-colors duration-300">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-white/[0.05]">
@@ -43,8 +43,13 @@ export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStar
         </div>
 
         <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 shrink-0">
-          <Badge variant="outline" className="px-2 py-1 text-xs font-semibold text-emerald-400 border-emerald-500/50 bg-emerald-500/10">
-            ● Running
+          <Badge variant="outline" className={cn(
+            "px-2 py-1 text-xs font-semibold border",
+            isBotRunning
+              ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/10"
+              : "text-slate-400 border-slate-500/40 bg-slate-500/10"
+          )}>
+            {isBotRunning ? '● Running' : '○ Stopped'}
           </Badge>
 
           <div className="flex items-center gap-2 pl-3 border-l border-white/10 dark:border-white/10">
@@ -74,6 +79,15 @@ export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStar
               )}
             >
               ■ Stop
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={onClear}
+              className="font-semibold text-sm px-3 py-1.5 h-auto rounded-md border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all duration-150"
+              title="Clear bot state, logs, and telemetry files"
+            >
+              🗑️ Clear State
             </Button>
           </div>
         </div>

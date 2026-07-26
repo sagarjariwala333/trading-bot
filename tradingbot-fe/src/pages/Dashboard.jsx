@@ -100,6 +100,25 @@ export default function Dashboard() {
     catch (e) { alert('error', `Failed to stop bot: ${e.message}`); }
   };
 
+  const handleClearInstance = async () => {
+    if (!window.confirm(`Are you sure you want to clear bot_state.json, live_status.json, bot.log, and reset database state for ${symbol}?`)) {
+      return;
+    }
+    try {
+      const r = await api.clearBotInstance(symbol);
+      if (r.success) {
+        setIsBotRunning(false);
+        setLiveStatus(null);
+        setLogs([]);
+        alert('success', r.message);
+      } else {
+        alert('error', r.message);
+      }
+    } catch (e) {
+      alert('error', `Failed to clear instance: ${e.message}`);
+    }
+  };
+
   const handleConfigChange = (field, val) => {
     if (!config) return;
     const lim = limits[field];
@@ -146,7 +165,7 @@ export default function Dashboard() {
 
         <DashboardHeader isConnected={isConnected} symbol={symbol} onSymbolChange={setSymbol} />
 
-        <TelemetryCard liveStatus={liveStatus} symbol={symbol} isBotRunning={isBotRunning} onStart={handleStartBot} onStop={handleStopBot} />
+        <TelemetryCard liveStatus={liveStatus} symbol={symbol} isBotRunning={isBotRunning} onStart={handleStartBot} onStop={handleStopBot} onClear={handleClearInstance} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <LogsPanel logs={logs} />

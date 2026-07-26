@@ -56,6 +56,14 @@ export const api = {
     return res.json();
   },
 
+  async clearBotInstance(symbol) {
+    const res = await fetch(`${BASE_URL}/bot/clear?symbol=${symbol}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error(await res.text() || 'Failed to clear bot instance');
+    return res.json();
+  },
+
   // Backtest endpoints
   async getDatasets() {
     const res = await fetch(`${BASE_URL}/backtest/datasets`);

@@ -127,8 +127,45 @@ class BotManager:
             except Exception:
                 pass
             
-            if symbol_clean in cls._processes:
-                del cls._processes[symbol_clean]
+        return True
+
+    @classmethod
+    def clear_instance(cls, symbol: str) -> bool:
+        symbol_clean = symbol.strip().upper()
+        # 1. Stop bot if running
+        cls.stop_bot(symbol_clean)
+        
+        # 2. Get file paths
+        paths = cls.get_paths(symbol_clean)
+        
+        # 3. Truncate/reset state, status, and log files
+        default_state = {
+            "status": "IDLE",
+            "direction": None,
+            "entry1_order_id": None,
+            "entry2_order_id": None,
+            "sl_order_id": None,
+            "tp_order_id": None,
+            "atr_at_signal": None,
+            "signal_candle_time": None,
+            "tp_level": 0,
+            "last_resized_qty": None
+        }
+        atomic_write_json(paths["state"], default_state)
+        atomic_write_json(paths["status"], {})
+        
+        try:
+            with open(paths["log"], "w") as f:
+                f.write("")
+        except Exception:
+            pass
+
+        # 4. Reset state in PostgreSQL database
+        try:
+            save_db_state(symbol_clean, default_state)
+        except Exception:
+            pass
+
         return True
 
     @classmethod

@@ -1,12 +1,12 @@
 {
   "status": "ENTRIES_PLACED",
-  "direction": "SHORT",
-  "entry1_order_id": 24018125873,
-  "entry2_order_id": 24018126396,
+  "tp_level": 0,
+  "direction": "LONG",
   "sl_order_id": null,
   "tp_order_id": null,
-  "atr_at_signal": 11.725622929978044,
-  "signal_candle_time": 1785011880000,
-  "tp_level": 0,
-  "last_resized_qty": null
+  "atr_at_signal": 18.452483847809653,
+  "entry1_order_id": 24121945297,
+  "entry2_order_id": 24121945592,
+  "last_resized_qty": null,
+  "signal_candle_time": 1785055440000
 }

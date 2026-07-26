@@ -36,6 +36,7 @@ import os
 import tempfile
 import time
 import uuid
+from datetime import datetime, timezone
 from dataclasses import dataclass, field, asdict
 from decimal import Decimal, ROUND_DOWN
 from typing import Optional
@@ -765,7 +766,22 @@ class ExchangeGateway:
         except Exception as e:
             error_code = self._binance_error_code(e)
             if error_code == -2013:
-                # Order doesn't exist (filled/cancelled/expired) - return None without retrying
+                # Order not found in regular orders - try algo order endpoint fallback
+                if hasattr(self.client, "futures_get_algo_order"):
+                    try:
+                        return self._call(self.client.futures_get_algo_order, symbol=self.cfg.symbol, algoId=order_id)
+                    except Exception:
+                        pass
+                
+                # Search open orders list for matching orderId or algoId
+                try:
+                    open_orders = self.get_open_orders()
+                    for o in open_orders:
+                        if o.get("orderId") == order_id or o.get("algoId") == order_id:
+                            return o
+                except Exception:
+                    pass
+
                 self.log.debug(f"Order {order_id} no longer exists on Binance (filled/cancelled)")
                 return None
             # For other errors (network, etc), re-raise so _call retries happen
@@ -1368,6 +1384,9 @@ class TradingBot:
             if last_row is not None and "adx" in last_row and pd.notna(last_row["adx"]):
                 current_adx = float(last_row["adx"])
 
+            entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if (pos_amt and entry_price and self.cfg.leverage) else 0.0
+            entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else None
+
             snapshot = {
                 "timestamp": time.time(),
                 "symbol": self.cfg.symbol,
@@ -1378,6 +1397,8 @@ class TradingBot:
                 "tp_level": self.state.tp_level,
                 "position_amt": pos_amt,
                 "entry_price": entry_price,
+                "entry_margin": entry_margin,
+                "entry_time": entry_time_str,
                 "mark_price": mark_price,
                 "unrealized_pnl": unrealized_pnl,
                 "available_balance": balance,
@@ -1617,11 +1638,19 @@ class TradingBot:
         entry_price = self.ex.get_position_entry_price()
         self._place_or_update_protective_orders(entry_price, pos_amt)
         self.state.status = "IN_POSITION"
-        self.save_state()
-        self.log.info(f"Position opened. amt={pos_amt}, merged entryPrice={entry_price}")
+        entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if self.cfg.leverage else 0.0
+        entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        self.log.info(
+            f"🚀 POSITION OPENED | Direction: {self.state.direction} | Symbol: {self.cfg.symbol} | "
+            f"Entry Price: {entry_price:.2f} | Entry Margin: ${entry_margin:.2f} | Leverage: {self.cfg.leverage}x | "
+            f"Entry Time: {entry_time_str} | Qty: {abs(pos_amt):.6f}"
+        )
         self.notify.send(f"✅ Position opened on {self.cfg.symbol}\n"
                           f"Direction: {self.state.direction}\n"
-                          f"Entry price: {entry_price:.2f}\nQty: {abs(pos_amt):.6f}")
+                          f"Entry Price: ${entry_price:.2f}\n"
+                          f"Entry Margin: ${entry_margin:.2f} (Leverage: {self.cfg.leverage}x)\n"
+                          f"Entry Time: {entry_time_str}\n"
+                          f"Qty: {abs(pos_amt):.6f}")
 
     # ---------------------------------------------------------------
     def _monitor_position(self):

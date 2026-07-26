@@ -1,7 +1,7 @@
 {
   "symbol": "BTCUSDT",
   "testnet": true,
-  "interval": "12h",
+  "interval": "1m",
   "leverage": 2,
   "adx_period": 14,
   "atr_period": 14,

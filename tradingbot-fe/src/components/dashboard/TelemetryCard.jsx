@@ -10,17 +10,21 @@ const CELLS = (liveStatus, symbol) => [
   { label: 'Mark Price', value: liveStatus?.mark_price > 0 ? parseFloat(liveStatus.mark_price).toFixed(2) : '--', unit: '', color: 'text-cyan-500 dark:text-cyan-400' },
   { label: 'Unrealized PnL', value: liveStatus?.unrealized_pnl != null ? parseFloat(liveStatus.unrealized_pnl).toFixed(4) : '0.0000', unit: 'USDT', color: liveStatus?.unrealized_pnl > 0 ? 'text-emerald-500 dark:text-emerald-400' : liveStatus?.unrealized_pnl < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-300' },
   { label: 'Entry Price', value: liveStatus?.entry_price > 0 ? parseFloat(liveStatus.entry_price).toFixed(2) : '--', unit: '', color: 'text-slate-800 dark:text-white' },
-  { label: 'Stop Loss', value: liveStatus?.sl_price > 0 ? parseFloat(liveStatus.sl_price).toFixed(2) : '--', unit: '', color: 'text-orange-500 dark:text-orange-400' },
-  { label: 'Take Profit', value: liveStatus?.tp_price > 0 ? parseFloat(liveStatus.tp_price).toFixed(2) : '--', unit: '', color: 'text-emerald-500 dark:text-emerald-400' },
+  { label: 'Entry Margin', value: liveStatus?.entry_margin > 0 ? parseFloat(liveStatus.entry_margin).toFixed(2) : '--', unit: 'USDT', color: 'text-indigo-500 dark:text-indigo-400' },
+  { label: 'Entry Time', value: liveStatus?.entry_time ? liveStatus.entry_time.split(' ')[1] || liveStatus.entry_time : '--', unit: liveStatus?.entry_time ? liveStatus.entry_time.split(' ')[0] : '', color: 'text-slate-700 dark:text-slate-300' },
   { label: 'Leverage', value: liveStatus ? `${liveStatus.leverage}×` : '--', unit: '', color: 'text-violet-500 dark:text-violet-400' },
+  { label: 'Current SL', value: liveStatus?.sl_price > 0 ? parseFloat(liveStatus.sl_price).toFixed(2) : '--', unit: '', color: 'text-orange-500 dark:text-orange-400' },
+  { label: 'Current TP Value', value: liveStatus?.tp_price > 0 ? parseFloat(liveStatus.tp_price).toFixed(2) : '--', unit: '', color: 'text-emerald-500 dark:text-emerald-400' },
+  { label: 'Current TP Level', value: liveStatus?.tp_level != null ? `Level ${liveStatus.tp_level}` : '--', unit: '', color: 'text-amber-500 dark:text-amber-400' },
+  { label: 'Accumulated TP Hits', value: liveStatus?.tp_level != null ? `${liveStatus.tp_level}` : '--', unit: 'steps', color: 'text-blue-500 dark:text-blue-400' },
 ];
 
 function MetricCell({ label, value, unit, color }) {
   return (
-    <div className="flex flex-col gap-3 p-5 hover:bg-slate-100/50 dark:hover:bg-white/[0.02] transition-colors rounded-xl border border-slate-200 dark:border-white/[0.04] bg-slate-100/30 dark:bg-slate-900/40">
-      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
-      <div className="flex items-baseline gap-1.5">
-        <span className={cn('text-2xl font-bold leading-none', color)}>{value}</span>
+    <div className="flex flex-col gap-2 p-4 hover:bg-slate-100/50 dark:hover:bg-white/[0.02] transition-colors rounded-xl border border-slate-200 dark:border-white/[0.04] bg-slate-100/30 dark:bg-slate-900/40">
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">{label}</span>
+      <div className="flex items-baseline gap-1.5 overflow-hidden">
+        <span className={cn('text-xl font-bold leading-none truncate', color)}>{value}</span>
         {unit && <span className="text-[10px] text-slate-500 font-semibold shrink-0">{unit}</span>}
       </div>
     </div>
@@ -74,7 +78,7 @@ export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStar
           </div>
         </div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 p-4">
+      <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
         {CELLS(liveStatus, symbol).map((cell) => (
           <MetricCell key={cell.label} {...cell} />
         ))}

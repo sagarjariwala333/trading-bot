@@ -9,3 +9,74 @@
 2026-07-26 02:53:51,964 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='SHORT', entry1_order_id=24018125873, entry2_order_id=24018126396, sl_order_id=None, tp_order_id=None, atr_at_signal=11.725622929978044, signal_candle_time=1785011880000, tp_level=0, last_resized_qty=None)
 2026-07-26 02:53:51,964 | INFO | Running startup reconciliation against Binance...
 2026-07-26 02:53:52,526 | WARNING | Reconciliation: found an OPEN SHORT position on BTCUSDT (qty 0.000900, entry 64265.10). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 14:13:46,116 | INFO | Clock resynced against Binance - offset now -59340ms.
+2026-07-26 14:13:46,786 | INFO | Clock resynced against Binance - offset now -59374ms.
+2026-07-26 14:13:47,400 | INFO | Bot started. State on load: BotState(status='IN_POSITION', direction='SHORT', entry1_order_id=None, entry2_order_id=None, sl_order_id=1000000146485416, tp_order_id=24092810239, atr_at_signal=961.817272548734, signal_candle_time=1784937600000, tp_level=0, last_resized_qty=0.0611)
+2026-07-26 14:13:47,400 | INFO | Running startup reconciliation against Binance...
+2026-07-26 14:13:48,015 | WARNING | Reconciliation: found an OPEN SHORT position on BTCUSDT (qty 0.061100, entry 64392.73). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 14:13:48,233 | INFO | Cancelled order 24092810239
+2026-07-26 14:13:48,233 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-26 14:13:48,828 | INFO | SL price validated: 65354.50 is safe for market 64358.00
+2026-07-26 14:13:49,043 | INFO | Raw SL response: {'algoId': 1000000146590764, 'clientAlgoId': 'x-Cb7ytekJde75dcbfbdd8e8dc3d2b38', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'BUY', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0611', 'algoStatus': 'NEW', 'triggerPrice': '65354.50', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785055369668, 'updateTime': 1785055369668, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-26 14:13:49,050 | INFO | Saving SL orderId=1000000146590764 clientOrderId=x-Cb7ytekJde75dcbfbdd8e8dc3d2b38
+2026-07-26 14:13:49,246 | INFO | Protective orders set: SL=65354.50 (qty 0.061100), next TP (level 1)=63911.82 (qty 0.018330)
+2026-07-26 14:13:52,523 | INFO | Order 1000000146590764 no longer exists on Binance. Assuming it has already been filled, cancelled, or replaced. Removing from tracking.
+2026-07-26 14:13:53,442 | INFO | Clock resynced against Binance - offset now -59370ms.
+2026-07-26 14:13:54,056 | INFO | Clock resynced against Binance - offset now -59376ms.
+2026-07-26 14:13:54,671 | INFO | Bot started. State on load: BotState(status='IN_POSITION', direction='SHORT', entry1_order_id=None, entry2_order_id=None, sl_order_id=1000000146590764, tp_order_id=24121570629, atr_at_signal=961.817272548734, signal_candle_time=1784937600000, tp_level=0, last_resized_qty=0.0611)
+2026-07-26 14:13:54,671 | INFO | Running startup reconciliation against Binance...
+2026-07-26 14:13:55,387 | WARNING | Reconciliation: found an OPEN SHORT position on BTCUSDT (qty 0.061100, entry 64392.73). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 14:13:55,603 | INFO | Cancelled order 24121570629
+2026-07-26 14:13:55,604 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-26 14:14:03,232 | INFO | Clock resynced against Binance - offset now -59377ms.
+2026-07-26 14:14:03,785 | INFO | Clock resynced against Binance - offset now -59374ms.
+2026-07-26 14:14:04,194 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-26 14:14:04,377 | INFO | Bot started. State on load: BotState(status='IN_POSITION', direction='SHORT', entry1_order_id=None, entry2_order_id=None, sl_order_id=1000000146590764, tp_order_id=24121570629, atr_at_signal=961.817272548734, signal_candle_time=1784937600000, tp_level=0, last_resized_qty=0.0611)
+2026-07-26 14:14:04,378 | INFO | Running startup reconciliation against Binance...
+2026-07-26 14:14:10,442 | INFO | Order 1000000146590764 no longer exists on Binance. Assuming it has already been filled, cancelled, or replaced. Removing from tracking.
+2026-07-26 14:14:28,463 | INFO | Order 1000000146590764 no longer exists on Binance. Assuming it has already been filled, cancelled, or replaced. Removing from tracking.
+2026-07-26 14:14:46,485 | INFO | Order 1000000146590764 no longer exists on Binance. Assuming it has already been filled, cancelled, or replaced. Removing from tracking.
+2026-07-26 14:15:14,851 | INFO | Clock resynced against Binance - offset now -59356ms.
+2026-07-26 14:15:15,465 | INFO | Clock resynced against Binance - offset now -59374ms.
+2026-07-26 14:15:15,874 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-26 14:15:16,147 | INFO | Bot started. State on load: BotState(status='IN_POSITION', direction='SHORT', entry1_order_id=None, entry2_order_id=None, sl_order_id=1000000146590764, tp_order_id=24121570629, atr_at_signal=961.817272548734, signal_candle_time=1784937600000, tp_level=0, last_resized_qty=0.0611)
+2026-07-26 14:15:16,152 | INFO | Running startup reconciliation against Binance...
+2026-07-26 14:15:16,797 | WARNING | Reconciliation: found an OPEN SHORT position on BTCUSDT (qty 0.061100, entry 64392.73). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 14:15:16,888 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-26 14:15:17,387 | INFO | SL price validated: 65354.50 is safe for market 64406.30
+2026-07-26 14:15:17,718 | INFO | Raw SL response: {'algoId': 1000000146591416, 'clientAlgoId': 'x-Cb7ytekJ7c60ba9d3ed594c34a10d', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'BUY', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0611', 'algoStatus': 'NEW', 'triggerPrice': '65354.50', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785055458260, 'updateTime': 1785055458276, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-26 14:15:17,719 | INFO | Saving SL orderId=1000000146591416 clientOrderId=x-Cb7ytekJ7c60ba9d3ed594c34a10d
+2026-07-26 14:15:17,997 | INFO | Protective orders set: SL=65354.50 (qty 0.061100), next TP (level 1)=63911.82 (qty 0.018330)
+2026-07-26 14:15:20,892 | INFO | Order 1000000146591416 no longer exists on Binance. Assuming it has already been filled, cancelled, or replaced. Removing from tracking.
+2026-07-26 14:15:49,642 | INFO | Clock resynced against Binance - offset now -59345ms.
+2026-07-26 14:15:50,385 | INFO | Clock resynced against Binance - offset now -59372ms.
+2026-07-26 14:15:50,793 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-26 14:15:50,998 | INFO | Bot started. State on load: BotState(status='IN_POSITION', direction='SHORT', entry1_order_id=None, entry2_order_id=None, sl_order_id=1000000146591416, tp_order_id=24121787890, atr_at_signal=961.817272548734, signal_candle_time=1784937600000, tp_level=0, last_resized_qty=0.0611)
+2026-07-26 14:15:50,998 | INFO | Running startup reconciliation against Binance...
+2026-07-26 14:15:51,718 | WARNING | Reconciliation: found an OPEN SHORT position on BTCUSDT (qty 0.061100, entry 64392.73). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 14:15:51,920 | INFO | Cancelled order 24121787890
+2026-07-26 14:15:51,920 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-26 14:15:52,712 | INFO | SL price validated: 65354.50 is safe for market 64410.90
+2026-07-26 14:15:52,945 | INFO | Raw SL response: {'algoId': 1000000146591648, 'clientAlgoId': 'x-Cb7ytekJfc39a564ce7cb468324fe5', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'BUY', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0611', 'algoStatus': 'NEW', 'triggerPrice': '65354.50', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785055493549, 'updateTime': 1785055493550, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-26 14:15:52,946 | INFO | Saving SL orderId=1000000146591648 clientOrderId=x-Cb7ytekJfc39a564ce7cb468324fe5
+2026-07-26 14:15:53,151 | INFO | Protective orders set: SL=65354.50 (qty 0.061100), next TP (level 1)=63911.82 (qty 0.018330)
+2026-07-26 14:15:54,480 | INFO | Opposite signal (LONG) seen while in a SHORT trade. Flipping: market-closing entire position (qty 0.061100).
+2026-07-26 14:15:55,095 | ERROR | futures_cancel_order failed with non-retryable error (-2011): APIError(code=-2011): Unknown order sent.. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-26 14:15:55,096 | INFO | Order already gone.
+2026-07-26 14:15:55,301 | ERROR | futures_cancel_order failed with non-retryable error (-2011): APIError(code=-2011): Unknown order sent.. Not retrying - this needs a human to fix (credentials, balance, or an order parameter).
+2026-07-26 14:15:55,301 | INFO | Order already gone.
+2026-07-26 14:15:55,810 | INFO | Flip complete - flat and reset. Now clear to open the new LONG trade.
+2026-07-26 14:15:55,812 | INFO | New LONG signal on candle 1785055440000
+2026-07-26 14:15:56,630 | INFO | LONG is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-26 14:15:56,836 | INFO | Raw entry order response: {'orderId': 24121868731, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785055556631d77439e4', 'price': '64379.60', 'origQty': '0.0381', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785055497469}
+2026-07-26 14:15:56,837 | INFO | Saving entry orderId=24121868731 clientOrderId=haqbot_1785055556631d77439e4
+2026-07-26 14:15:57,042 | INFO | Raw entry order response: {'orderId': 24121869211, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785055556837247263b5', 'price': '64392.90', 'origQty': '0.0381', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785055497677}
+2026-07-26 14:15:57,044 | INFO | Saving entry orderId=24121869211 clientOrderId=haqbot_1785055556837247263b5
+2026-07-26 14:15:57,654 | INFO | Placed entries: e1=64379.68 qty=0.038143 (id 24121868731), e2=64392.92 qty=0.038135 (id 24121869211), ATR=18.45
+2026-07-26 14:26:06,735 | INFO | Clock resynced against Binance - offset now -59362ms.
+2026-07-26 14:26:07,353 | INFO | Clock resynced against Binance - offset now -59375ms.
+2026-07-26 14:26:07,963 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='LONG', entry1_order_id=24121945297, entry2_order_id=24121945592, sl_order_id=None, tp_order_id=None, atr_at_signal=18.452483847809653, signal_candle_time=1785055440000, tp_level=0, last_resized_qty=None)
+2026-07-26 14:26:07,964 | INFO | Running startup reconciliation against Binance...
+2026-07-26 14:26:08,479 | INFO | Reconciliation: pending entry order(s) from before restart are still live - resuming normal wait for fill.
+2026-07-26 14:26:17,487 | INFO | Clock resynced against Binance - offset now -59359ms.
+2026-07-26 14:26:18,102 | INFO | Clock resynced against Binance - offset now -59370ms.

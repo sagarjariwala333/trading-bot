@@ -1810,56 +1810,57 @@ class TradingBot:
         # harmless (Binance's reduce-only semantics cap fills at the actual position
         # size, so there's no double-close risk) - having NEITHER is not.
         
-        # Validate SL price against current CONTRACT_PRICE to prevent -2021 errors.
+        adjusted_sl_price = sl_price
+        sl_is_valid = True
         try:
             mark_price = self.ex.get_current_price()
             is_valid, adjusted_sl_price, reason = self.validate_sl_price(direction, sl_price, mark_price)
             if not is_valid:
-                self.log.warning(f"SL price validation failed: {reason}. "
-                                f"Keeping old SL in place, will retry next cycle.")
+                self.log.warning(f"SL price validation failed: {reason}. Keeping old SL in place, will retry next cycle.")
                 self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {reason}")
-                self.state.last_resized_qty = total_qty
-                return  # Keep old SL, retry next cycle
-            self.log.info(f"SL price validated: {adjusted_sl_price:.2f} is safe for market {mark_price:.2f}")
+                sl_is_valid = False
+            else:
+                self.log.info(f"SL price validated: {adjusted_sl_price:.2f} is safe for market {mark_price:.2f}")
         except Exception as e:
-            self.log.warning(f"Could not fetch mark price for SL validation: {e}. "
-                            f"Placing SL anyway but with increased risk.")
+            self.log.warning(f"Could not fetch mark price for SL validation: {e}. Placing SL anyway but with increased risk.")
             adjusted_sl_price = sl_price
-        
-        try:
-            new_sl_id = self.ex.place_stop_market(close_side, adjusted_sl_price, total_qty)
-        except Exception as e:
-            self.log.error(f"Failed to place new SL - leaving the OLD SL in place untouched: {e}")
-            self.notify.send(f"⚠️ Could not update SL on {self.cfg.symbol} - your PREVIOUS "
-                              f"SL is still active and protecting the position: {e}")
-            return  # do NOT touch old_sl_id/old_tp_id; retry again next cycle
+
+        new_sl_id = None
+        if sl_is_valid:
+            try:
+                new_sl_id = self.ex.place_stop_market(close_side, adjusted_sl_price, total_qty)
+                self.state.last_resized_qty = total_qty
+            except Exception as e:
+                self.log.error(f"Failed to place new SL - leaving the OLD SL in place untouched: {e}")
+                self.notify.send(f"⚠️ Could not update SL on {self.cfg.symbol} - your PREVIOUS SL is still active and protecting the position: {e}")
+                self.state.last_resized_qty = total_qty  # Record quantity to prevent repeated mismatch log loops
+        else:
+            self.state.last_resized_qty = total_qty
 
         new_tp_id = None
         try:
             new_tp_id = self.ex.place_tp_limit(close_side, tp_price, tp_qty)
         except Exception as e:
-            self.log.error(f"New SL placed OK, but failed to place new TP - "
-                            f"keeping the OLD TP in place as a fallback: {e}")
-            self.notify.send(f"⚠️ SL updated on {self.cfg.symbol}, but the next TP level "
-                              f"failed to place - will retry next cycle: {e}")
+            self.log.error(f"Failed to place new TP order: {e}")
+            self.notify.send(f"⚠️ Could not place TP order on {self.cfg.symbol}: {e}")
 
-        # Only now, with the new SL confirmed live (and new TP too, if it succeeded),
-        # cancel the old orders.
-        if old_sl_id:
-            self.ex.cancel_order(old_sl_id)
-        if old_tp_id and new_tp_id is not None:
-            self.ex.cancel_order(old_tp_id)
-        # else: TP placement failed above - deliberately leave old_tp_id alive as a
-        # fallback and keep state.tp_order_id pointing at it; the next tick will retry.
+        # Cancel old SL if new SL was successfully placed
+        if new_sl_id:
+            if old_sl_id and new_sl_id != old_sl_id:
+                self.ex.cancel_order(old_sl_id)
+            self.state.sl_order_id = new_sl_id
 
-        self.state.sl_order_id = new_sl_id
-        if new_tp_id is not None:
+        # Cancel old TP if new TP was successfully placed
+        if new_tp_id:
+            if old_tp_id and new_tp_id != old_tp_id:
+                self.ex.cancel_order(old_tp_id)
             self.state.tp_order_id = new_tp_id
-            self.log.info(f"Protective orders set: SL={adjusted_sl_price:.2f} (qty {total_qty:.6f}), "
-                           f"next TP (level {self.state.tp_level + 1})={tp_price:.2f} (qty {tp_qty:.6f})")
-        else:
-            self.log.warning(f"SL updated to {adjusted_sl_price:.2f} (qty {total_qty:.6f}), but TP placement "
-                              f"failed - old TP order {old_tp_id} remains active as fallback.")
+
+        self.save_state()
+        sl_log_str = f"{adjusted_sl_price:.2f}" if new_sl_id else "OLD"
+        tp_log_str = f"{tp_price:.2f}" if new_tp_id else "NONE/OLD"
+        self.log.info(f"Protective orders set: SL={sl_log_str} (qty {total_qty:.6f}), "
+                       f"next TP (level {self.state.tp_level + 1})={tp_log_str} (qty {tp_qty:.6f})")
         
         # NEW FIX 4: Cache the position qty we just resized protective orders for.
         # This prevents infinite resize loops when queries return None (distinguishing

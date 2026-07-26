@@ -58,11 +58,27 @@ export default function Dashboard() {
   };
 
   const connectWebSocket = () => {
-    wsRef.current?.close();
+    if (wsRef.current) {
+      if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+        return;
+      }
+      wsRef.current.onopen = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.close();
+    }
     const ws = api.getLiveWebSocket(symbol, 2);
     wsRef.current = ws;
     ws.onopen    = () => { setIsConnected(true); setErrorMsg(null); };
-    ws.onclose   = () => { setIsConnected(false); setTimeout(() => { if (ws.readyState === WebSocket.CLOSED) connectWebSocket(); }, 5000); };
+    ws.onclose   = () => { 
+      setIsConnected(false); 
+      setTimeout(() => { 
+        if (wsRef.current === ws && (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)) { 
+          connectWebSocket(); 
+        } 
+      }, 5000); 
+    };
     ws.onerror   = () => setIsConnected(false);
     ws.onmessage = (e) => {
       try {

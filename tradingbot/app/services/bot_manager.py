@@ -39,14 +39,17 @@ class BotManager:
     def is_running(cls, symbol: str) -> bool:
         symbol_clean = symbol.strip().upper()
         process = cls._processes.get(symbol_clean)
-        if process is None:
+        if process is not None:
+            if process.poll() is None:
+                return True
+            del cls._processes[symbol_clean]
+        
+        # Fallback check DB if in-memory dict lost reference due to uvicorn hot-reload
+        try:
+            from app.core.db import get_active_bots
+            return symbol_clean in get_active_bots()
+        except Exception:
             return False
-        # poll() returns None if process is still running
-        if process.poll() is None:
-            return True
-        # Process has terminated, clean it up
-        del cls._processes[symbol_clean]
-        return False
 
     @classmethod
     def start_bot(cls, symbol: str) -> bool:
@@ -106,16 +109,18 @@ class BotManager:
     @classmethod
     def stop_bot(cls, symbol: str) -> bool:
         symbol_clean = symbol.strip().upper()
-        if not cls.is_running(symbol_clean):
-            return True
+        # Always set active status to False in DB first
+        try:
+            set_bot_active_status(symbol_clean, False)
+        except Exception:
+            pass
         
         process = cls._processes.get(symbol_clean)
         if process:
             try:
-                # Send terminate signal, wait briefly, and kill if it hangs
                 process.terminate()
                 try:
-                    process.wait(timeout=5)
+                    process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
@@ -124,11 +129,7 @@ class BotManager:
             
             if symbol_clean in cls._processes:
                 del cls._processes[symbol_clean]
-            
-            # Mark bot as inactive in DB
-            set_bot_active_status(symbol_clean, False)
-            return True
-        return False
+        return True
 
     @classmethod
     def read_json_safe(cls, path: str, default: Any) -> Any:

@@ -579,13 +579,9 @@ class ExchangeGateway:
                     if code == -2013:
                         order_ref = kwargs.get("orderId") or kwargs.get("algoId")
                         if order_ref is None:
-                            self.log.info("Order no longer exists on Binance. "
-                                          "Assuming it has already been filled, cancelled, or replaced. "
-                                          "Removing from tracking.")
+                            self.log.debug("Order not found in standard orderbook, checking algo orders...")
                         else:
-                            self.log.info(f"Order {order_ref} no longer exists on Binance. "
-                                          f"Assuming it has already been filled, cancelled, or replaced. "
-                                          f"Removing from tracking.")
+                            self.log.debug(f"Order {order_ref} not found in standard orderbook, checking algo orders...")
                     else:
                         self.log.error(f"{fn.__name__} failed with non-retryable error "
                                        f"({code}): {e}. Not retrying - this needs a human "
@@ -757,48 +753,62 @@ class ExchangeGateway:
 
     def get_order_status(self, order_id: int) -> Optional[dict]:
         """Get order status. Return None only if order doesn't exist (filled/cancelled),
-        raise exception if query itself failed (network/API issue)."""
+        handles both regular orderId and conditional algoId."""
         if not order_id:
             return None
+
+        # 1. Try standard order lookup
         try:
-            status = self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
+            status = self.client.futures_get_order(symbol=self.cfg.symbol, orderId=order_id)
             return status
         except Exception as e:
             error_code = self._binance_error_code(e)
-            if error_code == -2013:
-                # Order not found in regular orders - try algo order endpoint fallback
-                if hasattr(self.client, "futures_get_algo_order"):
-                    try:
-                        return self._call(self.client.futures_get_algo_order, symbol=self.cfg.symbol, algoId=order_id)
-                    except Exception:
-                        pass
-                
-                # Search open orders list for matching orderId or algoId
-                try:
-                    open_orders = self.get_open_orders()
-                    for o in open_orders:
-                        if o.get("orderId") == order_id or o.get("algoId") == order_id:
-                            return o
-                except Exception:
-                    pass
+            if error_code != -2013:
+                raise
 
-                self.log.debug(f"Order {order_id} no longer exists on Binance (filled/cancelled)")
-                return None
-            # For other errors (network, etc), re-raise so _call retries happen
-            raise
+        # 2. If -2013, try algo order endpoint directly (where STOP_MARKET orders live)
+        try:
+            if hasattr(self.client, "futures_get_algo_order"):
+                return self._call(self.client.futures_get_algo_order, symbol=self.cfg.symbol, algoId=order_id)
+        except Exception as e:
+            algo_code = self._binance_error_code(e)
+            if algo_code != -2013:
+                self.log.debug(f"futures_get_algo_order failed for {order_id}: {e}")
+
+        # 3. Search open orders and open algo orders as fallback
+        try:
+            open_orders = self.get_open_orders()
+            for o in open_orders:
+                if o.get("orderId") == order_id or o.get("algoId") == order_id:
+                    return o
+        except Exception:
+            pass
+
+        self.log.debug(f"Order {order_id} no longer exists on Binance (filled/cancelled)")
+        return None
 
     def get_open_orders(self) -> list:
         """
-        ALL currently open orders for this symbol, straight from Binance - not just the
-        ones bot_state.json happens to reference by ID. This is what makes startup
-        reconciliation trustworthy: it looks at exchange ground truth, not just the ids
-        the (possibly stale or crashed-mid-write) state file remembers.
+        ALL currently open orders for this symbol, straight from Binance - both regular limit
+        orders AND conditional algo orders (like STOP_MARKET).
         """
+        orders = []
         try:
-            return self._call(self.client.futures_get_open_orders, symbol=self.cfg.symbol)
+            reg_orders = self._call(self.client.futures_get_open_orders, symbol=self.cfg.symbol)
+            if reg_orders and isinstance(reg_orders, list):
+                orders.extend(reg_orders)
         except Exception as e:
-            self.log.error(f"Could not fetch open orders during reconciliation: {e}")
-            return []
+            self.log.error(f"Could not fetch regular open orders: {e}")
+
+        try:
+            if hasattr(self.client, "futures_get_open_algo_orders"):
+                algo_orders = self._call(self.client.futures_get_open_algo_orders, symbol=self.cfg.symbol)
+                if algo_orders and isinstance(algo_orders, list):
+                    orders.extend(algo_orders)
+        except Exception as e:
+            self.log.debug(f"Could not fetch open algo orders: {e}")
+
+        return orders
 
     def cancel_order(self, order_id: int):
         """Cancel an order. Handle -2011 (already gone) gracefully without retry."""
@@ -935,11 +945,12 @@ class ExchangeGateway:
             workingType="CONTRACT_PRICE",
             newClientOrderId=self._new_client_order_id(),
         )
-        order_ref, _ = self._extract_order_ref(order)
-        self.log.info("Raw SL response: %s", order)
-        self.log.info("Saving SL orderId=%s clientOrderId=%s",
-                      order.get("orderId") or order.get("algoId"),
-                      order.get("clientOrderId") or order.get("clientAlgoId"))
+        algo_id = order.get("algoId")
+        order_id = order.get("orderId")
+        id_str = f"algoId={algo_id}" if algo_id else f"orderId={order_id}"
+        self.log.info("Saving SL %s clientOrderId=%s",
+                      id_str,
+                      order.get("clientAlgoId") or order.get("clientOrderId"))
         return order_ref
 
     def place_tp_limit(self, side: str, price: float, qty: float) -> int:
@@ -1415,9 +1426,32 @@ class TradingBot:
                 if oid:
                     o = self.ex.get_order_status(oid)
                     if o:
-                        price = o.get("stopPrice") if float(o.get("stopPrice", 0) or 0) else o.get("price")
-                        snapshot[f"{label}_price"] = float(price) if price else None
-                        snapshot[f"{label}_qty"] = float(o.get("origQty", 0))
+                        price = o.get("triggerPrice") or o.get("stopPrice") or o.get("price")
+                        snapshot[f"{label}_price"] = float(price) if price and float(price) > 0 else None
+                        snapshot[f"{label}_qty"] = float(o.get("origQty") or o.get("quantity") or 0)
+
+            # Fallback: If in position and SL/TP price is still None, scan live open orders directly
+            if pos_amt and (snapshot["sl_price"] is None or snapshot["tp_price"] is None):
+                try:
+                    open_orders = self.ex.get_open_orders()
+                    for o in open_orders:
+                        otype = o.get("type", "")
+                        stop_p = float(o.get("stopPrice", 0) or 0)
+                        limit_p = float(o.get("price", 0) or 0)
+                        qty = float(o.get("origQty", 0) or 0)
+                        
+                        if snapshot["sl_price"] is None and (otype in ("STOP_MARKET", "STOP") or stop_p > 0):
+                            snapshot["sl_price"] = stop_p if stop_p > 0 else limit_p
+                            snapshot["sl_qty"] = qty
+                            if not self.state.sl_order_id:
+                                self.state.sl_order_id = o.get("orderId") or o.get("algoId")
+                        elif snapshot["tp_price"] is None and (otype in ("LIMIT", "TAKE_PROFIT") and o.get("reduceOnly")):
+                            snapshot["tp_price"] = limit_p if limit_p > 0 else stop_p
+                            snapshot["tp_qty"] = qty
+                            if not self.state.tp_order_id:
+                                self.state.tp_order_id = o.get("orderId") or o.get("algoId")
+                except Exception as ex:
+                    self.log.debug(f"Open orders fallback scan in live status failed: {ex}")
 
             atomic_write_json(self.cfg.live_status_file, snapshot)
         except Exception as e:
@@ -1641,7 +1675,7 @@ class TradingBot:
         entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if self.cfg.leverage else 0.0
         entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
         self.log.info(
-            f"🚀 POSITION OPENED | Direction: {self.state.direction} | Symbol: {self.cfg.symbol} | "
+            f"[POSITION OPENED] | Direction: {self.state.direction} | Symbol: {self.cfg.symbol} | "
             f"Entry Price: {entry_price:.2f} | Entry Margin: ${entry_margin:.2f} | Leverage: {self.cfg.leverage}x | "
             f"Entry Time: {entry_time_str} | Qty: {abs(pos_amt):.6f}"
         )
@@ -1676,6 +1710,7 @@ class TradingBot:
 
         if tp_filled:
             self.state.tp_level += 1
+            self.state.tp_order_id = None  # Clear filled TP order ID to prevent infinite re-trigger loop
             self.log.info(f"TP level {self.state.tp_level} hit — ratcheting SL and advancing "
                            f"to the next ladder level.")
             self._cancel_stale_entry_orders()
@@ -1748,6 +1783,7 @@ class TradingBot:
                 self.log.warning(f"SL price validation failed: {reason}. "
                                 f"Keeping old SL in place, will retry next cycle.")
                 self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {reason}")
+                self.state.last_resized_qty = total_qty
                 return  # Keep old SL, retry next cycle
             self.log.info(f"SL price validated: {adjusted_sl_price:.2f} is safe for market {mark_price:.2f}")
         except Exception as e:

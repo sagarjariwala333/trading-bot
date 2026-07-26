@@ -1,5 +1,5 @@
 {
-  "timestamp": 1785085562.3181982,
+  "timestamp": 1785085578.4018586,
   "symbol": "BTCUSDT",
   "interval": "15m",
   "leverage": 2,
@@ -10,7 +10,7 @@
   "entry_price": 0.0,
   "entry_margin": 0.0,
   "entry_time": null,
-  "mark_price": 64716.0,
+  "mark_price": 64692.36096014,
   "unrealized_pnl": null,
   "realized_pnl": 0.0,
   "total_pnl": 0.0,

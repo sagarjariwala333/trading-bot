@@ -12,6 +12,7 @@ class BotStateSchema(BaseModel):
     atr_at_signal: Optional[float] = None
     signal_candle_time: Optional[int] = None
     tp_level: int = 0
+    realized_pnl: Optional[float] = 0.0
 
 
 class LiveStatusSchema(BaseModel):
@@ -21,7 +22,9 @@ class LiveStatusSchema(BaseModel):
     position_amt: float
     entry_price: float
     mark_price: float
-    unrealized_pnl: float
+    unrealized_pnl: Optional[float] = None
+    realized_pnl: Optional[float] = 0.0
+    total_pnl: Optional[float] = 0.0
     sl_price: Optional[float] = None
     tp_price: Optional[float] = None
     tp_qty: Optional[float] = None

@@ -4,9 +4,9 @@
   "direction": "SHORT",
   "sl_order_id": null,
   "tp_order_id": null,
-  "atr_at_signal": 27.204292104732424,
-  "entry1_order_id": 24134603815,
-  "entry2_order_id": 24134603818,
+  "atr_at_signal": 48.617410963723906,
+  "entry1_order_id": 24155787532,
+  "entry2_order_id": 24155787995,
   "last_resized_qty": null,
-  "signal_candle_time": 1785060720000
+  "signal_candle_time": 1785069000000
 }

@@ -60,3 +60,10 @@
 2026-07-26 15:44:58,919 | WARNING | Reconciliation: found 26 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
 2026-07-26 15:44:58,919 | INFO | Reconciliation: pending entry order(s) from before restart are still live - resuming normal wait for fill.
 2026-07-26 15:45:07,461 | INFO | Clock resynced against Binance - offset now -59320ms.
+2026-07-26 18:55:05,093 | INFO | Clock resynced against Binance - offset now -59274ms.
+2026-07-26 18:55:05,707 | INFO | Clock resynced against Binance - offset now -59292ms.
+2026-07-26 18:55:06,117 | INFO | Leverage unchanged: APIError(code=-2028): Leverage is smaller than permitted: insufficient margin balance.
+2026-07-26 18:55:06,322 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='SHORT', entry1_order_id=24155787532, entry2_order_id=24155787995, sl_order_id=None, tp_order_id=None, atr_at_signal=48.617410963723906, signal_candle_time=1785069000000, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
+2026-07-26 18:55:06,329 | INFO | Running startup reconciliation against Binance...
+2026-07-26 18:55:06,834 | WARNING | Reconciliation: found 14 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-26 18:55:06,835 | INFO | Reconciliation: pending entry order(s) from before restart are still live - resuming normal wait for fill.

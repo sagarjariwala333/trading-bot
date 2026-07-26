@@ -365,6 +365,7 @@ class BotState:
     signal_candle_time: Optional[int] = None   # ms open_time of the candle that triggered entry
     tp_level: int = 0                   # how many TP levels have been hit so far (0 = none yet)
     last_resized_qty: Optional[float] = None  # qty of last successful protective order resize (prevents resize loops)
+    realized_pnl: float = 0.0           # accumulated realized profit and loss
 
     def get_symbol_from_env(self) -> str:
         try:
@@ -421,7 +422,9 @@ class BotState:
         return cls()
 
     def reset(self):
+        saved_pnl = self.realized_pnl
         self.__init__()
+        self.realized_pnl = saved_pnl
 
 
 # --------------------------------------------------------------------------
@@ -1414,6 +1417,15 @@ class TradingBot:
             entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if (pos_amt and entry_price and self.cfg.leverage) else 0.0
             entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else None
 
+            realized_pnl = getattr(self.state, "realized_pnl", 0.0) or 0.0
+            try:
+                trades = self.ex._call(self.ex.client.futures_account_trades, symbol=self.cfg.symbol, limit=50)
+                if trades and isinstance(trades, list):
+                    realized_pnl = sum(float(t.get("realizedPnl", 0) or 0) for t in trades)
+                    self.state.realized_pnl = realized_pnl
+            except Exception:
+                pass
+
             snapshot = {
                 "timestamp": time.time(),
                 "symbol": self.cfg.symbol,
@@ -1428,6 +1440,8 @@ class TradingBot:
                 "entry_time": entry_time_str,
                 "mark_price": mark_price,
                 "unrealized_pnl": unrealized_pnl,
+                "realized_pnl": round(realized_pnl, 4),
+                "total_pnl": round((realized_pnl + (unrealized_pnl or 0.0)), 4),
                 "available_balance": balance,
                 "atr_at_signal": self.state.atr_at_signal,
                 "current_adx": current_adx,

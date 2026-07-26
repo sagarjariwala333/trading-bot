@@ -1418,13 +1418,6 @@ class TradingBot:
             entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else None
 
             realized_pnl = getattr(self.state, "realized_pnl", 0.0) or 0.0
-            try:
-                trades = self.ex._call(self.ex.client.futures_account_trades, symbol=self.cfg.symbol, limit=50)
-                if trades and isinstance(trades, list):
-                    realized_pnl = sum(float(t.get("realizedPnl", 0) or 0) for t in trades)
-                    self.state.realized_pnl = realized_pnl
-            except Exception:
-                pass
 
             snapshot = {
                 "timestamp": time.time(),
@@ -1741,6 +1734,18 @@ class TradingBot:
         if tp_filled:
             self.state.tp_level += 1
             self.state.tp_order_id = None  # Clear filled TP order ID to prevent infinite re-trigger loop
+
+            # Calculate realized PnL for this TP fill
+            try:
+                tp_price = float(tp_status.get("avgPrice") or tp_status.get("price") or 0)
+                tp_qty = float(tp_status.get("executedQty") or tp_status.get("origQty") or 0)
+                if tp_price > 0 and entry_price > 0 and tp_qty > 0:
+                    tp_pnl = (tp_price - entry_price) * tp_qty if self.state.direction == "LONG" else (entry_price - tp_price) * tp_qty
+                    self.state.realized_pnl = getattr(self.state, "realized_pnl", 0.0) + tp_pnl
+                    self.log.info(f"TP level {self.state.tp_level} hit — realized PnL: +${tp_pnl:.4f} (Accumulated: ${self.state.realized_pnl:.4f})")
+            except Exception:
+                pass
+
             self.log.info(f"TP level {self.state.tp_level} hit — ratcheting SL and advancing "
                            f"to the next ladder level.")
             self._cancel_stale_entry_orders()

@@ -71,6 +71,9 @@ class BotManager:
 
         db_state = get_db_state(symbol_clean)
         if db_state:
+            if db_state.get("status") == "IDLE":
+                db_state["realized_pnl"] = 0.0
+                save_db_state(symbol_clean, db_state)
             atomic_write_json(paths["state"], db_state)
 
         # Mark bot as active in DB

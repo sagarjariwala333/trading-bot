@@ -67,3 +67,20 @@
 2026-07-26 18:55:06,329 | INFO | Running startup reconciliation against Binance...
 2026-07-26 18:55:06,834 | WARNING | Reconciliation: found 14 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
 2026-07-26 18:55:06,835 | INFO | Reconciliation: pending entry order(s) from before restart are still live - resuming normal wait for fill.
+2026-07-26 21:48:00,845 | INFO | Clock resynced against Binance - offset now -59280ms.
+2026-07-26 21:48:01,426 | INFO | Clock resynced against Binance - offset now -59287ms.
+2026-07-26 21:48:01,802 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-26 21:48:01,971 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='LONG', entry1_order_id=24184967241, entry2_order_id=24184967517, sl_order_id=None, tp_order_id=None, atr_at_signal=56.904322203878536, signal_candle_time=1785080700000, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
+2026-07-26 21:48:01,974 | INFO | Running startup reconciliation against Binance...
+2026-07-26 21:48:02,592 | WARNING | Reconciliation: found 15 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-26 21:48:02,745 | WARNING | Reconciliation: found an OPEN LONG position on BTCUSDT (qty 0.364700, entry 64689.83). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-26 21:48:02,745 | INFO | Cancelling order 24184989904...
+2026-07-26 21:48:02,953 | INFO | Successfully cancelled order 24184989904
+2026-07-26 21:48:02,953 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-26 21:48:03,525 | INFO | SL price validated: 64632.90 is safe for market 64709.31
+2026-07-26 21:49:23,687 | INFO | Clock resynced against Binance - offset now -59351ms.
+2026-07-26 21:49:24,276 | INFO | Clock resynced against Binance - offset now -59304ms.
+2026-07-26 21:49:24,613 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-26 21:49:24,790 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='LONG', entry1_order_id=24184967241, entry2_order_id=24184967517, sl_order_id=None, tp_order_id=None, atr_at_signal=56.904322203878536, signal_candle_time=1785080700000, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
+2026-07-26 21:49:24,790 | INFO | Running startup reconciliation against Binance...
+2026-07-26 21:49:25,429 | WARNING | Reconciliation: found 16 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.

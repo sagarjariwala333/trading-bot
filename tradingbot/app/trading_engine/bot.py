@@ -431,6 +431,20 @@ class BotState:
 # LOGGING
 # --------------------------------------------------------------------------
 
+class DatabaseLogHandler(logging.Handler):
+    def __init__(self, symbol: str):
+        super().__init__()
+        self.symbol = symbol
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            from app.core.db import insert_db_log
+            insert_db_log(self.symbol, record.levelname, msg)
+        except Exception:
+            pass
+
+
 def setup_logger(cfg: Config) -> logging.Logger:
     logger = logging.getLogger("ha_alma_bot")
     if logger.handlers:
@@ -445,6 +459,15 @@ def setup_logger(cfg: Config) -> logging.Logger:
     ch = logging.StreamHandler()
     ch.setFormatter(fmt)
     logger.addHandler(ch)
+
+    try:
+        sym = getattr(cfg, 'symbol', None) or os.environ.get("SYMBOL", "BTCUSDT")
+        dh = DatabaseLogHandler(sym)
+        dh.setFormatter(fmt)
+        logger.addHandler(dh)
+    except Exception:
+        pass
+
     return logger
 
 
@@ -937,6 +960,31 @@ class ExchangeGateway:
                 return False, f"SHORT SL at {sl_price:.2f} is BELOW market {mark_price:.2f} (gap={gap:.2f}) - would immediately trigger"
             return True, None
 
+    def _record_order_to_db(self, order: dict, purpose: str, trade_id: str = ""):
+        try:
+            from app.core.db import record_db_order
+            order_info = {
+                "trade_id": trade_id,
+                "order_id": order.get("orderId"),
+                "algo_id": order.get("algoId"),
+                "client_order_id": order.get("clientOrderId"),
+                "client_algo_id": order.get("clientAlgoId"),
+                "side": order.get("side"),
+                "order_type": order.get("type"),
+                "purpose": purpose,
+                "price": order.get("price", 0.0),
+                "stop_price": order.get("stopPrice", 0.0),
+                "quantity": order.get("origQty") or order.get("quantity") or 0.0,
+                "executed_qty": order.get("executedQty", 0.0),
+                "status": order.get("status", "NEW"),
+                "reduce_only": order.get("reduceOnly", False),
+                "working_type": order.get("workingType", "CONTRACT_PRICE"),
+                "order_data": order,
+            }
+            record_db_order(self.cfg.symbol, order_info)
+        except Exception as e:
+            self.log.warning(f"Could not record order to DB: {e}")
+
     def place_entry_limit(self, side: str, price: float, qty: float) -> int:
         order = self._call(
             self.client.futures_create_order,
@@ -950,6 +998,7 @@ class ExchangeGateway:
         self.log.info("Saving entry orderId=%s clientOrderId=%s",
                       order.get("orderId") or order.get("algoId"),
                       order.get("clientOrderId") or order.get("clientAlgoId"))
+        self._record_order_to_db(order, "ENTRY")
         return order_ref
 
     def place_stop_market(self, side: str, stop_price: float, qty: float) -> int:
@@ -970,6 +1019,7 @@ class ExchangeGateway:
         self.log.info("Saving SL %s clientOrderId=%s",
                       id_str,
                       order.get("clientAlgoId") or order.get("clientOrderId"))
+        self._record_order_to_db(order, "STOP_LOSS")
         return order_ref
 
     def place_tp_limit(self, side: str, price: float, qty: float) -> int:
@@ -982,6 +1032,7 @@ class ExchangeGateway:
             newClientOrderId=self._new_client_order_id(),
         )
         order_ref, _ = self._extract_order_ref(order)
+        self._record_order_to_db(order, "TAKE_PROFIT")
         return order_ref
 
     def place_market_close(self, side: str, qty: float) -> int:
@@ -993,6 +1044,7 @@ class ExchangeGateway:
             newClientOrderId=self._new_client_order_id(),
         )
         order_ref, _ = self._extract_order_ref(order)
+        self._record_order_to_db(order, "MARKET_CLOSE")
         return order_ref
 
 
@@ -1477,6 +1529,12 @@ class TradingBot:
                     self.log.debug(f"Open orders fallback scan in live status failed: {ex}")
 
             atomic_write_json(self.cfg.live_status_file, snapshot)
+
+            try:
+                from app.core.db import save_db_live_status
+                save_db_live_status(self.cfg.get_symbol_from_env(), snapshot)
+            except Exception as ex:
+                self.log.debug(f"Save live status to DB failed: {ex}")
         except Exception as e:
             self.log.warning(f"Could not write live status snapshot: {e}")
 
@@ -1533,6 +1591,60 @@ class TradingBot:
             waited += poll_interval
         return abs(self.ex.get_position_amt()) < QTY_EPSILON
 
+    def _record_signal_to_db(self, last_row, last_candle_time, signal: str, decision: str, executed: bool):
+        try:
+            from app.core.db import record_db_signal
+            record_db_signal(self.cfg.symbol, {
+                "candle_time": datetime.fromtimestamp(last_candle_time / 1000.0, timezone.utc) if last_candle_time else datetime.now(timezone.utc),
+                "ha_open": float(last_row["ha_open"]),
+                "ha_close": float(last_row["ha_close"]),
+                "ha_high": float(last_row["ha_high"]),
+                "ha_low": float(last_row["ha_low"]),
+                "alma": float(last_row["alma"]),
+                "rsi": float(last_row["rsi"]),
+                "rsi_sma": float(last_row["rsi_sma"]),
+                "atr": float(last_row["atr"]),
+                "adx": float(last_row["adx"]) if "adx" in last_row and pd.notna(last_row["adx"]) else None,
+                "trend_sma": float(last_row["trend_sma"]) if "trend_sma" in last_row and pd.notna(last_row["trend_sma"]) else None,
+                "signal": signal or "NONE",
+                "decision": decision,
+                "executed": executed
+            })
+        except Exception as e:
+            self.log.debug(f"Could not record signal to DB: {e}")
+
+    def _record_trade_to_db(self, direction: str, entry_price: float, exit_price: float, qty: float, close_reason: str):
+        try:
+            from app.core.db import record_db_trade
+            margin_used = (qty * entry_price) / self.cfg.leverage if (entry_price and self.cfg.leverage) else 0.0
+            gross_pnl = (exit_price - entry_price) * qty if direction == "LONG" else (entry_price - exit_price) * qty
+            estimated_fees = (entry_price + exit_price) * qty * 0.00035
+            net_realized_pnl = gross_pnl - estimated_fees
+            return_pct = (net_realized_pnl / margin_used * 100.0) if margin_used > 0 else 0.0
+
+            trade_id = f"trade_{self.state.signal_candle_time or int(time.time()*1000)}"
+            record_db_trade(self.cfg.symbol, {
+                "trade_id": trade_id,
+                "direction": direction,
+                "entry_time": datetime.fromtimestamp((self.state.signal_candle_time or int(time.time()*1000))/1000.0, timezone.utc),
+                "exit_time": datetime.now(timezone.utc),
+                "entry_price": entry_price,
+                "exit_price": exit_price,
+                "quantity": qty,
+                "leverage": self.cfg.leverage,
+                "margin_used": margin_used,
+                "trend_aligned": True,
+                "atr_at_signal": self.state.atr_at_signal or 0.0,
+                "tp_levels_hit": self.state.tp_level,
+                "gross_pnl": gross_pnl,
+                "estimated_fees": estimated_fees,
+                "realized_pnl": net_realized_pnl,
+                "return_pct": return_pct,
+                "close_reason": close_reason
+            })
+        except Exception as e:
+            self.log.warning(f"Could not record completed trade to DB: {e}")
+
     # ---------------------------------------------------------------
     def _check_for_new_signal(self, df_ind, last_row, last_candle_time):
         if self.state.signal_candle_time == last_candle_time:
@@ -1540,6 +1652,7 @@ class TradingBot:
 
         signal = compute_signal(df_ind)
         if signal is None:
+            self._record_signal_to_db(last_row, last_candle_time, "NONE", "NO_HA_ALMA_RSI_CROSS", False)
             return
 
         # Optional trend-strength gate (off by default - your judgment is the default
@@ -1554,6 +1667,7 @@ class TradingBot:
                 self.notify.send(f"⏸ {signal} signal on {self.cfg.symbol} skipped\n"
                                   f"ADX {adx_val:.1f} below threshold {self.cfg.adx_threshold} - "
                                   f"staying flat, watching for real conviction.")
+                self._record_signal_to_db(last_row, last_candle_time, signal, f"SKIPPED_ADX_{adx_val:.1f}_BELOW_{self.cfg.adx_threshold}", False)
                 self.state.signal_candle_time = last_candle_time  # don't re-log every poll this candle
                 self.save_state()
                 return
@@ -1661,6 +1775,7 @@ class TradingBot:
         self.state.signal_candle_time = last_candle_time
         self.state.tp_level = 0
         self.save_state()
+        self._record_signal_to_db(last_row, last_candle_time, signal, f"OPEN_{signal}_EXECUTE", True)
         self.log.info(f"Placed entries: e1={e1:.2f} qty={qty1:.6f} (id {order1_id}), "
                        f"e2={e2:.2f} qty={qty2:.6f} (id {order2_id}), ATR={atr_val:.2f}")
         arrow = "🟢📈" if signal == "LONG" else "🔴📉"

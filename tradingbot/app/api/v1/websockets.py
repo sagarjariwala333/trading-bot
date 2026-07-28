@@ -21,15 +21,28 @@ async def websocket_live_status(
     
     try:
         while True:
-            # Gather bot status
+            # Gather bot status and DB analytics for 100% socket-driven live updates
             status_data = BotManager.get_bot_status(symbol, log_lines=30)
             
-            # Serialize status data to a dict
+            from app.core.db import (
+                get_db_trades, get_db_trade_summary, get_db_orders, get_db_signals
+            )
+            
+            trades = get_db_trades(symbol, limit=50)
+            summary = get_db_trade_summary(symbol)
+            orders = get_db_orders(symbol, limit=50)
+            signals = get_db_signals(symbol, limit=50)
+
+            # Serialize full live telemetry & analytics to WebSocket payload
             payload = {
                 "is_running": status_data.is_running,
                 "bot_state": status_data.bot_state.model_dump() if status_data.bot_state else None,
                 "live_status": status_data.live_status,
-                "logs": status_data.logs
+                "logs": status_data.logs,
+                "trades": trades,
+                "summary": summary,
+                "orders": orders,
+                "signals": signals,
             }
             
             await websocket.send_json(payload)

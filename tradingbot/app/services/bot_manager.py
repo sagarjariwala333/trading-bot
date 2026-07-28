@@ -9,7 +9,8 @@ from app.core.config import settings
 from app.trading_engine.bot import Config, validate_config_field, atomic_write_json
 from app.schemas.bot import BotStateSchema, LiveStatusSchema, BotStatusResponseSchema
 from app.core.db import (
-    get_db_config, save_db_config, get_db_state, save_db_state, set_bot_active_status
+    get_db_config, save_db_config, get_db_state, save_db_state, set_bot_active_status,
+    get_db_live_status, get_db_logs
 )
 
 
@@ -209,10 +210,10 @@ class BotManager:
         paths = cls.get_paths(symbol_clean)
         running = cls.is_running(symbol_clean)
         
-        # Fallback to local files if DB read returns nothing
+        # Prioritize DB queries; fallback to local files
         state_data = get_db_state(symbol_clean) or cls.read_json_safe(paths["state"], {})
-        status_data = cls.read_json_safe(paths["status"], {})
-        logs = cls.tail_log_lines(paths["log"], log_lines)
+        status_data = get_db_live_status(symbol_clean) or cls.read_json_safe(paths["status"], {})
+        logs = get_db_logs(symbol_clean, log_lines) or cls.tail_log_lines(paths["log"], log_lines)
 
         bot_state = None
         if state_data:

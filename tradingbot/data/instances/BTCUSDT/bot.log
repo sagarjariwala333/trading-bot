@@ -1,6 +1,134 @@
-2026-07-26 22:34:54,405 | INFO | Clock resynced against Binance - offset now -59293ms.
-2026-07-26 22:34:55,043 | INFO | Clock resynced against Binance - offset now -59338ms.
-2026-07-26 22:34:55,618 | INFO | Bot started. State on load: BotState(status='IDLE', direction=None, entry1_order_id=None, entry2_order_id=None, sl_order_id=None, tp_order_id=None, atr_at_signal=None, signal_candle_time=None, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
-2026-07-26 22:34:55,619 | INFO | Running startup reconciliation against Binance...
-2026-07-26 22:34:56,234 | WARNING | Reconciliation: found 16 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
-2026-07-26 22:34:56,235 | INFO | Reconciliation: flat, matches saved state. Nothing to do.
+2026-07-29 01:32:28,033 | INFO | Clock resynced against Binance - offset now -60128ms.
+2026-07-29 01:32:28,582 | INFO | Clock resynced against Binance - offset now -60141ms.
+2026-07-29 01:32:29,021 | INFO | Bot started. State on load: BotState(status='IDLE', direction=None, entry1_order_id=None, entry2_order_id=None, sl_order_id=None, tp_order_id=None, atr_at_signal=None, signal_candle_time=None, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
+2026-07-29 01:32:29,022 | INFO | Running startup reconciliation against Binance...
+2026-07-29 01:32:29,571 | WARNING | Reconciliation: found 1 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-29 01:32:29,575 | WARNING | Reconciliation: found 2 of the bot's OWN stray open order(s) with no position behind them - cancelling.
+2026-07-29 01:32:29,578 | INFO | Cancelling order 24620791224...
+2026-07-29 01:32:29,808 | INFO | Successfully cancelled order 24620791224
+2026-07-29 01:32:29,808 | INFO | Cancelling order 24620791225...
+2026-07-29 01:32:30,006 | INFO | Successfully cancelled order 24620791225
+2026-07-29 01:32:30,007 | INFO | Reconciliation: flat, matches saved state. Nothing to do.
+2026-07-29 01:32:31,040 | INFO | New LONG signal on candle 1785267900000
+2026-07-29 01:32:31,647 | INFO | LONG is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-29 01:32:32,160 | INFO | Raw entry order response: {'orderId': 24620978267, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785268951964a14f2b86', 'price': '63750.50', 'origQty': '0.1423', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785268891985}
+2026-07-29 01:32:32,161 | INFO | Saving entry orderId=24620978267 clientOrderId=haqbot_1785268951964a14f2b86
+2026-07-29 01:32:32,357 | INFO | Raw entry order response: {'orderId': 24620978927, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785268952162c1a7be32', 'price': '63759.40', 'origQty': '0.1423', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785268892188}
+2026-07-29 01:32:32,358 | INFO | Saving entry orderId=24620978927 clientOrderId=haqbot_1785268952162c1a7be32
+2026-07-29 01:32:32,869 | INFO | Placed entries: e1=63750.52 qty=0.142326 (id 24620978267), e2=63759.43 qty=0.142306 (id 24620978927), ATR=131.08
+2026-07-29 01:33:10,421 | INFO | Clock resynced against Binance - offset now -60236ms.
+2026-07-29 01:33:11,242 | INFO | Clock resynced against Binance - offset now -60228ms.
+2026-07-29 01:33:11,815 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='LONG', entry1_order_id=24621046340, entry2_order_id=24621046342, sl_order_id=None, tp_order_id=None, atr_at_signal=28.72416982211472, signal_candle_time=1785268860000, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
+2026-07-29 01:33:11,816 | INFO | Running startup reconciliation against Binance...
+2026-07-29 01:33:12,556 | WARNING | Reconciliation: found 1 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-29 01:33:12,721 | WARNING | Reconciliation: found an OPEN LONG position on BTCUSDT (qty 0.076800, entry 63858.15). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-29 01:33:12,722 | INFO | Cancelling order 24620978267...
+2026-07-29 01:33:12,965 | INFO | Successfully cancelled order 24620978267
+2026-07-29 01:33:12,966 | INFO | Cancelling order 24621046340...
+2026-07-29 01:33:13,146 | INFO | Successfully cancelled order 24621046340
+2026-07-29 01:33:13,146 | INFO | Cancelling order 24620978927...
+2026-07-29 01:33:13,308 | INFO | Successfully cancelled order 24620978927
+2026-07-29 01:33:13,308 | INFO | Saved direction/ATR match the live position - keeping tp_level=0 (ladder progress preserved).
+2026-07-29 01:33:13,708 | INFO | SL price validated: 63829.40 is safe for market 63879.50
+2026-07-29 01:33:13,955 | INFO | Raw SL response: {'algoId': 1000000148918778, 'clientAlgoId': 'x-Cb7ytekJf65a428c9e31eb6c40f139', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'SELL', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0768', 'algoStatus': 'NEW', 'triggerPrice': '63829.40', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785268933740, 'updateTime': 1785268933741, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:33:13,956 | INFO | Saving SL algoId=1000000148918778 clientOrderId=x-Cb7ytekJf65a428c9e31eb6c40f139
+2026-07-29 01:33:14,860 | INFO | Protective orders set: SL=63829.40 (qty 0.076800), next TP (level 1)=63872.51 (qty 0.023040)
+2026-07-29 01:33:16,506 | INFO | TP level 1 hit — realized PnL: +$0.3672 (Accumulated: $0.3672)
+2026-07-29 01:33:16,507 | INFO | TP level 1 hit — ratcheting SL and advancing to the next ladder level.
+2026-07-29 01:33:16,672 | INFO | SL price validated: 63856.50 is safe for market 63872.50
+2026-07-29 01:33:16,833 | INFO | Raw SL response: {'algoId': 1000000148918814, 'clientAlgoId': 'x-Cb7ytekJ50091d3ef7d0f5e8368353', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'SELL', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0638', 'algoStatus': 'NEW', 'triggerPrice': '63856.50', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785268936697, 'updateTime': 1785268936697, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:33:16,874 | INFO | Saving SL algoId=1000000148918814 clientOrderId=x-Cb7ytekJ50091d3ef7d0f5e8368353
+2026-07-29 01:33:17,080 | INFO | Cancelling algo order 1000000148918778...
+2026-07-29 01:33:17,329 | INFO | Successfully cancelled algo order 1000000148918778
+2026-07-29 01:33:18,077 | INFO | Protective orders set: SL=63856.50 (qty 0.063800), next TP (level 2)=63885.26 (qty 0.019140)
+2026-07-29 01:33:36,259 | INFO | Position closed. Cleaning up remaining orders and resetting state.
+2026-07-29 01:33:36,259 | INFO | Cancelling algo order 1000000148918814...
+2026-07-29 01:33:36,470 | INFO | Algo order 1000000148918814 already gone (filled or auto-cancelled on Binance).
+2026-07-29 01:33:36,471 | INFO | Cancelling order 24621086952...
+2026-07-29 01:33:36,668 | INFO | Order 24621086952 already gone (filled or auto-cancelled on Binance).
+2026-07-29 01:33:53,110 | INFO | New LONG signal on candle 1785268920000
+2026-07-29 01:33:53,875 | INFO | LONG is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-29 01:33:54,051 | INFO | Raw entry order response: {'orderId': 24621159659, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785269033876c078b862', 'price': '63851.40', 'origQty': '0.0709', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785268973893}
+2026-07-29 01:33:54,052 | INFO | Saving entry orderId=24621159659 clientOrderId=haqbot_1785269033876c078b862
+2026-07-29 01:33:54,381 | INFO | Raw entry order response: {'orderId': 24621159671, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785269034054b47729b8', 'price': '63858.80', 'origQty': '0.0709', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785268974089}
+2026-07-29 01:33:54,382 | INFO | Saving entry orderId=24621159671 clientOrderId=haqbot_1785269034054b47729b8
+2026-07-29 01:33:55,001 | INFO | Placed entries: e1=63851.48 qty=0.070996 (id 24621159659), e2=63858.83 qty=0.070988 (id 24621159671), ATR=31.30
+2026-07-29 01:34:12,529 | INFO | SL price validated: 63827.90 is safe for market 63859.30
+2026-07-29 01:34:12,708 | INFO | Raw SL response: {'algoId': 1000000148919378, 'clientAlgoId': 'x-Cb7ytekJ67d6aa07253ecf5a6fc091', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'SELL', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0465', 'algoStatus': 'NEW', 'triggerPrice': '63827.90', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785268992552, 'updateTime': 1785268992559, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:34:12,709 | INFO | Saving SL algoId=1000000148919378 clientOrderId=x-Cb7ytekJ67d6aa07253ecf5a6fc091
+2026-07-29 01:34:13,766 | INFO | Protective orders set: SL=63827.90 (qty 0.046500), next TP (level 1)=63874.95 (qty 0.013950)
+2026-07-29 01:34:13,767 | INFO | [POSITION OPENED] | Direction: LONG | Symbol: BTCUSDT | Entry Price: 63859.30 | Entry Margin: $296.95 | Leverage: 10x | Entry Time: 2026-07-28 20:02:00 UTC | Qty: 0.046500
+2026-07-29 01:34:31,560 | INFO | Position qty changed: cached=0.046500, actual=0.212800, diff=0.166300 > tolerance=0.000150
+2026-07-29 01:34:31,876 | INFO | Position size changed without a TP fill (late 2nd entry fill, or a manual partial close) - resizing protective orders.
+2026-07-29 01:34:32,108 | INFO | SL price validated: 63827.80 is safe for market 63870.47
+2026-07-29 01:34:32,274 | INFO | Raw SL response: {'algoId': 1000000148919589, 'clientAlgoId': 'x-Cb7ytekJb5b3b3598acacf915f31a2', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'SELL', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.2128', 'algoStatus': 'NEW', 'triggerPrice': '63827.80', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785269012133, 'updateTime': 1785269012135, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:34:32,277 | INFO | Saving SL algoId=1000000148919589 clientOrderId=x-Cb7ytekJb5b3b3598acacf915f31a2
+2026-07-29 01:34:32,519 | INFO | Cancelling algo order 1000000148919378...
+2026-07-29 01:34:32,683 | INFO | Successfully cancelled algo order 1000000148919378
+2026-07-29 01:34:32,684 | INFO | Cancelling order 24621198764...
+2026-07-29 01:34:32,856 | INFO | Successfully cancelled order 24621198764
+2026-07-29 01:34:33,297 | INFO | Protective orders set: SL=63827.80 (qty 0.212800), next TP (level 1)=63874.78 (qty 0.063840)
+2026-07-29 01:35:09,646 | INFO | TP level 1 hit — realized PnL: +$0.9931 (Accumulated: $1.3604)
+2026-07-29 01:35:09,647 | INFO | TP level 1 hit — ratcheting SL and advancing to the next ladder level.
+2026-07-29 01:35:09,869 | INFO | Cancelling order 24621159659...
+2026-07-29 01:35:10,030 | INFO | Successfully cancelled order 24621159659
+2026-07-29 01:35:10,518 | INFO | SL price validated: 63859.10 is safe for market 63879.50
+2026-07-29 01:35:10,686 | INFO | Raw SL response: {'algoId': 1000000148919910, 'clientAlgoId': 'x-Cb7ytekJ9a499b859fbca91dbc287b', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'SELL', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0852', 'algoStatus': 'NEW', 'triggerPrice': '63859.10', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785269050545, 'updateTime': 1785269050546, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:35:10,686 | INFO | Saving SL algoId=1000000148919910 clientOrderId=x-Cb7ytekJ9a499b859fbca91dbc287b
+2026-07-29 01:35:10,932 | INFO | Cancelling algo order 1000000148919589...
+2026-07-29 01:35:11,098 | INFO | Successfully cancelled algo order 1000000148919589
+2026-07-29 01:35:11,752 | INFO | Protective orders set: SL=63859.10 (qty 0.085200), next TP (level 2)=63890.43 (qty 0.025560)
+2026-07-29 01:35:29,929 | INFO | Position closed. Cleaning up remaining orders and resetting state.
+2026-07-29 01:35:29,930 | INFO | Cancelling order 24621159659...
+2026-07-29 01:35:30,220 | INFO | Order 24621159659 already gone (filled or auto-cancelled on Binance).
+2026-07-29 01:35:30,221 | INFO | Cancelling order 24621159671...
+2026-07-29 01:35:30,435 | INFO | Order 24621159671 already gone (filled or auto-cancelled on Binance).
+2026-07-29 01:35:30,435 | INFO | Cancelling algo order 1000000148919910...
+2026-07-29 01:35:30,671 | INFO | Algo order 1000000148919910 already gone (filled or auto-cancelled on Binance).
+2026-07-29 01:35:30,672 | INFO | Cancelling order 24621322518...
+2026-07-29 01:35:30,918 | INFO | Order 24621322518 already gone (filled or auto-cancelled on Binance).
+2026-07-29 01:35:47,465 | INFO | New LONG signal on candle 1785269040000
+2026-07-29 01:35:48,271 | INFO | LONG is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-29 01:35:48,562 | INFO | Raw entry order response: {'orderId': 24621394942, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_17852691482898b0d932a', 'price': '63865.50', 'origQty': '0.0708', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785269088325}
+2026-07-29 01:35:48,563 | INFO | Saving entry orderId=24621394942 clientOrderId=haqbot_17852691482898b0d932a
+2026-07-29 01:35:48,738 | INFO | Raw entry order response: {'orderId': 24621396023, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_178526914856399b37e56', 'price': '63872.20', 'origQty': '0.0708', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'BUY', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785269088605}
+2026-07-29 01:35:48,738 | INFO | Saving entry orderId=24621396023 clientOrderId=haqbot_178526914856399b37e56
+2026-07-29 01:35:49,183 | INFO | Placed entries: e1=63865.51 qty=0.070879 (id 24621394942), e2=63872.25 qty=0.070871 (id 24621396023), ATR=29.74
+2026-07-29 01:44:14,084 | INFO | Clock resynced against Binance - offset now -60186ms.
+2026-07-29 01:44:14,254 | INFO | Clock resynced against Binance - offset now -60123ms.
+2026-07-29 01:44:14,655 | INFO | Leverage unchanged: APIError(code=-4161): Leverage reduction is not supported in Isolated Margin Mode with open positions.
+2026-07-29 01:44:14,828 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='LONG', entry1_order_id=24621394942, entry2_order_id=24621396023, sl_order_id=None, tp_order_id=None, atr_at_signal=29.73914033245629, signal_candle_time=1785269040000, tp_level=0, last_resized_qty=None, realized_pnl=1.3603852028250563)
+2026-07-29 01:44:14,842 | INFO | Running startup reconciliation against Binance...
+2026-07-29 01:44:15,404 | WARNING | Reconciliation: found 2 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-29 01:44:15,692 | WARNING | Reconciliation: found an OPEN SHORT position on BTCUSDT (qty 0.226200, entry 63882.45). Clearing this bot's own existing orders and placing fresh protective orders.
+2026-07-29 01:44:15,703 | INFO | Cancelling order 24622109960...
+2026-07-29 01:44:15,933 | INFO | Successfully cancelled order 24622109960
+2026-07-29 01:44:15,940 | WARNING | Saved state didn't match the live position (or was missing/corrupted) - resetting ladder progress to level 0. The ORIGINAL frozen ATR from signal time can't be recovered once state is lost, so recomputing a fresh ATR from current market data as the best available approximation.
+2026-07-29 01:44:16,882 | INFO | SL price validated: 64817.60 is safe for market 63909.12
+2026-07-29 01:44:17,123 | INFO | Raw SL response: {'algoId': 1000000148924843, 'clientAlgoId': 'x-Cb7ytekJf151df494e617461fb1776', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'BUY', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.2262', 'algoStatus': 'NEW', 'triggerPrice': '64817.60', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785269596933, 'updateTime': 1785269596934, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:44:17,135 | INFO | Saving SL algoId=1000000148924843 clientOrderId=x-Cb7ytekJf151df494e617461fb1776
+2026-07-29 01:44:17,620 | WARNING | futures_create_order failed (attempt 1/3): APIError(code=-2022): ReduceOnly Order is rejected.
+2026-07-29 01:48:02,260 | INFO | Clock resynced against Binance - offset now -60168ms.
+2026-07-29 01:48:02,466 | INFO | Clock resynced against Binance - offset now -60136ms.
+2026-07-29 01:48:02,843 | INFO | Leverage unchanged: APIError(code=-2028): Leverage is smaller than permitted: insufficient margin balance.
+2026-07-29 01:48:03,019 | INFO | Bot started. State on load: BotState(status='ENTRIES_PLACED', direction='LONG', entry1_order_id=24621394942, entry2_order_id=24621396023, sl_order_id=None, tp_order_id=None, atr_at_signal=29.73914033245629, signal_candle_time=1785269040000, tp_level=0, last_resized_qty=None, realized_pnl=1.3603852028250563)
+2026-07-29 01:48:03,032 | INFO | Running startup reconciliation against Binance...
+2026-07-29 01:48:03,780 | WARNING | Reconciliation: found 2 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
+2026-07-29 01:48:03,857 | WARNING | Reconciliation: found 2 of the bot's OWN stray open order(s) with no position behind them - cancelling.
+2026-07-29 01:48:03,869 | INFO | Cancelling order 24622920984...
+2026-07-29 01:48:04,149 | INFO | Successfully cancelled order 24622920984
+2026-07-29 01:48:04,171 | INFO | Cancelling order 24622920991...
+2026-07-29 01:48:04,430 | INFO | Successfully cancelled order 24622920991
+2026-07-29 01:48:04,449 | INFO | Reconciliation: the LONG trade on BTCUSDT resolved while the bot was down (reached TP level 0). Resetting to IDLE.
+2026-07-29 01:48:04,731 | INFO | New SHORT signal on candle 1785196800000
+2026-07-29 01:48:05,389 | INFO | SHORT is ALIGNED with the SMA(50) trend - using 25.00% margin per entry.
+2026-07-29 01:48:05,826 | INFO | Raw entry order response: {'orderId': 24623039223, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785269885658a1623fb2', 'price': '64120.50', 'origQty': '0.0280', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'SELL', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785269825697}
+2026-07-29 01:48:05,848 | INFO | Saving entry orderId=24623039223 clientOrderId=haqbot_1785269885658a1623fb2
+2026-07-29 01:48:06,080 | INFO | Raw entry order response: {'orderId': 24623039942, 'symbol': 'BTCUSDT', 'status': 'NEW', 'clientOrderId': 'haqbot_1785269885884a4831484', 'price': '63509.70', 'origQty': '0.0283', 'executedQty': '0.0000', 'cumQty': '0.0000', 'timeInForce': 'GTC', 'type': 'LIMIT', 'reduceOnly': False, 'closePosition': False, 'side': 'SELL', 'positionSide': 'BOTH', 'stopPrice': '0.00', 'workingType': 'CONTRACT_PRICE', 'priceProtect': False, 'origType': 'LIMIT', 'priceMatch': 'NONE', 'selfTradePreventionMode': 'EXPIRE_MAKER', 'goodTillDate': 0, 'updateTime': 1785269825937}
+2026-07-29 01:48:06,098 | INFO | Saving entry orderId=24623039942 clientOrderId=haqbot_1785269885884a4831484
+2026-07-29 01:48:06,149 | INFO | Placed entries: e1=64120.54 qty=0.028051 (id 24623039223), e2=63509.77 qty=0.028320 (id 24623039942), ATR=935.18
+2026-07-29 01:48:23,354 | INFO | SL price validated: 64886.20 is safe for market 63960.50
+2026-07-29 01:48:23,612 | INFO | Raw SL response: {'algoId': 1000000148927084, 'clientAlgoId': 'x-Cb7ytekJc358188d7da853e6c0c87e', 'algoType': 'CONDITIONAL', 'orderType': 'STOP_MARKET', 'symbol': 'BTCUSDT', 'side': 'BUY', 'positionSide': 'BOTH', 'timeInForce': 'GTC', 'quantity': '0.0283', 'algoStatus': 'NEW', 'triggerPrice': '64886.20', 'price': '0.00', 'icebergQuantity': None, 'selfTradePreventionMode': 'EXPIRE_MAKER', 'workingType': 'CONTRACT_PRICE', 'priceMatch': 'NONE', 'closePosition': False, 'priceProtect': False, 'reduceOnly': True, 'createTime': 1785269843417, 'updateTime': 1785269843417, 'triggerTime': 0, 'goodTillDate': 0}
+2026-07-29 01:48:23,632 | INFO | Saving SL algoId=1000000148927084 clientOrderId=x-Cb7ytekJc358188d7da853e6c0c87e
+2026-07-29 01:48:23,880 | INFO | Protective orders set: SL=64886.20 (qty 0.028300), next TP (level 1)=63483.51 (qty 0.008490)
+2026-07-29 01:48:23,888 | INFO | [POSITION OPENED] | Direction: SHORT | Symbol: BTCUSDT | Entry Price: 63951.10 | Entry Margin: $904.91 | Leverage: 2x | Entry Time: 2026-07-28 00:00:00 UTC | Qty: 0.028300

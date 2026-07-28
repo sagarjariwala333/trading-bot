@@ -1,13 +1,13 @@
 {
-  "status": "IDLE",
-  "direction": null,
-  "entry1_order_id": null,
-  "entry2_order_id": null,
-  "sl_order_id": null,
-  "tp_order_id": null,
-  "atr_at_signal": null,
-  "signal_candle_time": null,
+  "status": "ENTRIES_PLACED",
+  "direction": "SHORT",
+  "entry1_order_id": 24623039223,
+  "entry2_order_id": 24623039942,
+  "sl_order_id": 1000000148927084,
+  "tp_order_id": 24623085845,
+  "atr_at_signal": 935.1786693871674,
+  "signal_candle_time": 1785196800000,
   "tp_level": 0,
-  "last_resized_qty": null,
-  "realized_pnl": 0.0
+  "last_resized_qty": 0.0283,
+  "realized_pnl": 1.3603852028250563
 }

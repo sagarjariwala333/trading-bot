@@ -115,6 +115,31 @@ export const api = {
     return res.json();
   },
 
+  // Analytics endpoints
+  async getTrades(symbol = 'BTCUSDT', limit = 100) {
+    const res = await fetch(`${BASE_URL}/analytics/trades?symbol=${symbol}&limit=${limit}`);
+    if (!res.ok) throw new Error(await res.text() || 'Failed to fetch trades');
+    return res.json();
+  },
+
+  async getOrders(symbol = 'BTCUSDT', limit = 100) {
+    const res = await fetch(`${BASE_URL}/analytics/orders?symbol=${symbol}&limit=${limit}`);
+    if (!res.ok) throw new Error(await res.text() || 'Failed to fetch orders');
+    return res.json();
+  },
+
+  async getSignals(symbol = 'BTCUSDT', limit = 100) {
+    const res = await fetch(`${BASE_URL}/analytics/signals?symbol=${symbol}&limit=${limit}`);
+    if (!res.ok) throw new Error(await res.text() || 'Failed to fetch signal decisions');
+    return res.json();
+  },
+
+  async getPerformance(symbol = 'BTCUSDT') {
+    const res = await fetch(`${BASE_URL}/analytics/performance?symbol=${symbol}`);
+    if (!res.ok) throw new Error(await res.text() || 'Failed to fetch performance');
+    return res.json();
+  },
+
   // WebSocket Live Stream Helper
   getLiveWebSocket(symbol, intervalSeconds = 2) {
     return new WebSocket(`${WS_BASE_URL}/ws/live?symbol=${symbol}&interval_seconds=${intervalSeconds}`);

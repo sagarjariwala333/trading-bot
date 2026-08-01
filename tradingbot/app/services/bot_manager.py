@@ -3,6 +3,7 @@ import sys
 import subprocess
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
+from binance.client import Client
 from app.core.config import settings
 from app.services.database_service import db_service
 from app.schemas.bot import BotStateSchema, LiveStatusSchema, BotStatusResponseSchema
@@ -131,6 +132,102 @@ class BotManager:
         except Exception as e:
             db_service.log_event("ERROR", f"Failed to clear bot instance {symbol_clean}: {e}", symbol_clean)
 
+        return True
+
+    @classmethod
+    def _close_binance_positions(cls, symbol_clean: str):
+        config = db_service.get_bot_config(symbol_clean) or {}
+        testnet = config.get("testnet", True)
+        
+        api_key = settings.BINANCE_API_KEY
+        api_secret = settings.BINANCE_API_SECRET
+        if not api_key or not api_secret:
+            raise ValueError("BINANCE_API_KEY or BINANCE_API_SECRET is missing from settings.")
+            
+        client = Client(api_key, api_secret, testnet=testnet)
+        
+        # Cancel all open orders
+        client.futures_cancel_all_open_orders(symbol=symbol_clean)
+        
+        # Close open positions
+        positions = client.futures_position_information(symbol=symbol_clean)
+        for pos in positions:
+            pos_amt = float(pos["positionAmt"])
+            if pos_amt != 0:
+                side = 'BUY' if pos_amt < 0 else 'SELL'
+                qty = abs(pos_amt)
+                client.futures_create_order(
+                    symbol=symbol_clean,
+                    side=side,
+                    type='MARKET',
+                    quantity=qty
+                )
+
+    @classmethod
+    def close_trade(cls, symbol: str) -> bool:
+        symbol_clean = symbol.strip().upper()
+        was_running = cls.is_running(symbol_clean)
+        
+        if was_running:
+            cls.stop_bot(symbol_clean)
+
+        try:
+            cls._close_binance_positions(symbol_clean)
+        except Exception as e:
+            db_service.log_event("ERROR", f"Failed to close trade on Binance for {symbol_clean}: {e}", symbol_clean)
+            raise RuntimeError(f"Failed to close trade on Binance: {e}")
+
+        default_state = {
+            "status": "IDLE",
+            "direction": None,
+            "entry1_order_id": None,
+            "entry2_order_id": None,
+            "sl_order_id": None,
+            "tp_order_id": None,
+            "atr_at_signal": None,
+            "signal_candle_time": None,
+            "tp_level": 0,
+            "last_resized_qty": None,
+            "realized_pnl": 0.0
+        }
+        
+        db_service.save_bot_state(symbol_clean, default_state)
+        db_service.log_event("INFO", f"Trade closed and state reset for {symbol_clean}", symbol_clean)
+        
+        if was_running:
+            cls.start_bot(symbol_clean)
+            
+        return True
+
+    @classmethod
+    def reset_bot(cls, symbol: str) -> bool:
+        symbol_clean = symbol.strip().upper()
+        cls.stop_bot(symbol_clean)
+
+        try:
+            cls._close_binance_positions(symbol_clean)
+        except Exception as e:
+            db_service.log_event("ERROR", f"Failed to close trade during reset for {symbol_clean}: {e}", symbol_clean)
+            raise RuntimeError(f"Failed to close trade on Binance during reset: {e}")
+
+        default_state = {
+            "status": "IDLE",
+            "direction": None,
+            "entry1_order_id": None,
+            "entry2_order_id": None,
+            "sl_order_id": None,
+            "tp_order_id": None,
+            "atr_at_signal": None,
+            "signal_candle_time": None,
+            "tp_level": 0,
+            "last_resized_qty": None,
+            "realized_pnl": 0.0
+        }
+        
+        db_service.save_bot_state(symbol_clean, default_state)
+        cls.reset_config(symbol_clean)
+        
+        db_service.log_event("INFO", f"Bot {symbol_clean} has been completely reset", symbol_clean)
         return True
 
     @classmethod

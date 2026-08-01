@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { cn } from '../lib/utils';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 
 import AlertBanner    from '../components/dashboard/AlertBanner';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [errorMsg, setErrorMsg]       = useState(null);
   const [successMsg, setSuccessMsg]   = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', description: '', variant: 'destructive', onConfirm: null });
   const [isBotRunning, setIsBotRunning] = useState(false);
   const [liveStatus, setLiveStatus]   = useState(null);
   const [logs, setLogs]               = useState([]);
@@ -103,59 +105,74 @@ export default function Dashboard() {
     catch (e) { alert('error', `Failed to stop bot: ${e.message}`); }
   };
 
-  const handleClearInstance = async () => {
-    if (!window.confirm(`Are you sure you want to clear bot_state.json, live_status.json, bot.log, and reset database state for ${symbol}?`)) {
-      return;
-    }
-    try {
-      const r = await api.clearBotInstance(symbol);
-      if (r.success) {
-        setIsBotRunning(false);
-        setLiveStatus(null);
-        setLogs([]);
-        alert('success', r.message);
-      } else {
-        alert('error', r.message);
+  const handleClearInstance = () => {
+    setConfirmDialog({
+      open: true,
+      title: 'Clear Bot Instance State',
+      description: `Are you sure you want to clear bot runtime files, logs, and reset database state for ${symbol}?`,
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          const r = await api.clearBotInstance(symbol);
+          if (r.success) {
+            setIsBotRunning(false);
+            setLiveStatus(null);
+            setLogs([]);
+            alert('success', r.message);
+          } else {
+            alert('error', r.message);
+          }
+        } catch (e) {
+          alert('error', `Failed to clear instance: ${e.message}`);
+        }
       }
-    } catch (e) {
-      alert('error', `Failed to clear instance: ${e.message}`);
-    }
+    });
   };
 
-  const handleCloseTrade = async () => {
-    if (!window.confirm(`Are you sure you want to close the open trade and cancel all orders for ${symbol}?`)) {
-      return;
-    }
-    try {
-      const r = await api.closeTrade(symbol);
-      if (r.success) {
-        alert('success', r.message);
-      } else {
-        alert('error', r.message);
+  const handleCloseTrade = () => {
+    setConfirmDialog({
+      open: true,
+      title: 'Emergency Close Open Trade',
+      description: `Are you sure you want to close the active open position and cancel all pending orders for ${symbol}?`,
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          const r = await api.closeTrade(symbol);
+          if (r.success) {
+            alert('success', r.message);
+          } else {
+            alert('error', r.message);
+          }
+        } catch (e) {
+          alert('error', `Failed to close trade: ${e.message}`);
+        }
       }
-    } catch (e) {
-      alert('error', `Failed to close trade: ${e.message}`);
-    }
+    });
   };
 
-  const handleResetBot = async () => {
-    if (!window.confirm(`Are you sure you want to COMPLETELY reset the bot for ${symbol}? This will stop the bot, close trades, reset state, and restore default config.`)) {
-      return;
-    }
-    try {
-      const r = await api.resetBot(symbol);
-      if (r.success) {
-        setIsBotRunning(false);
-        setLiveStatus(null);
-        setLogs([]);
-        await fetchConfig(); // Reload config
-        alert('success', r.message);
-      } else {
-        alert('error', r.message);
+  const handleResetBot = () => {
+    setConfirmDialog({
+      open: true,
+      title: 'Completely Reset Bot',
+      description: `Are you sure you want to COMPLETELY reset the bot for ${symbol}? This will stop the bot, close open trades, reset state, and restore default strategy settings.`,
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          const r = await api.resetBot(symbol);
+          if (r.success) {
+            setIsBotRunning(false);
+            setLiveStatus(null);
+            setLogs([]);
+            await fetchConfig(); // Reload config
+            alert('success', r.message);
+          } else {
+            alert('error', r.message);
+          }
+        } catch (e) {
+          alert('error', `Failed to reset bot: ${e.message}`);
+        }
       }
-    } catch (e) {
-      alert('error', `Failed to reset bot: ${e.message}`);
-    }
+    });
   };
 
   const handleConfigChange = (field, val) => {
@@ -255,6 +272,18 @@ export default function Dashboard() {
         ) : (
           <ReportsPanel />
         )}
+
+        {/* Confirmation Modal */}
+        <Dialog
+          open={confirmDialog.open}
+          onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
+          title={confirmDialog.title}
+          description={confirmDialog.description}
+          variant={confirmDialog.variant}
+          type="confirm"
+          confirmText="Yes, Proceed"
+          onConfirm={confirmDialog.onConfirm}
+        />
 
       </div>
     </div>

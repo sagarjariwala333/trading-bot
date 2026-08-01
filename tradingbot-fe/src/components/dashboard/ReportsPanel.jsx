@@ -5,11 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog } from '@/components/ui/dialog';
 import { reportService } from '@/services/reportService';
 import { cn } from '@/lib/utils';
 
 export default function ReportsPanel() {
   const [symbol, setSymbol] = useState('ALL');
+  const [modalConfig, setModalConfig] = useState({ open: false, title: '', description: '', variant: 'destructive', type: 'alert' });
+
   // Default dates: last 30 days
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -47,7 +50,13 @@ export default function ReportsPanel() {
     try {
       await reportService.downloadReport(symbol, startDate, endDate, format);
     } catch (err) {
-      alert(`Download failed: ${err.message}`);
+      setModalConfig({
+        open: true,
+        title: 'Download Failed',
+        description: `Error generating ${format.toUpperCase()} report: ${err.message}`,
+        variant: 'destructive',
+        type: 'alert'
+      });
     } finally {
       setDownloadingFormat(null);
     }
@@ -406,6 +415,16 @@ export default function ReportsPanel() {
       ) : (
         <div className="text-center text-slate-400 py-10">No report summary available. Make sure your dates are valid.</div>
       )}
+
+      {/* Styled Modal Dialog for Alerts */}
+      <Dialog
+        open={modalConfig.open}
+        onClose={() => setModalConfig({ ...modalConfig, open: false })}
+        title={modalConfig.title}
+        description={modalConfig.description}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+      />
     </div>
   );
 }

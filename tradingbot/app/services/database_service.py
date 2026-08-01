@@ -48,6 +48,12 @@ class TradingDatabaseService:
             ops = DatabaseOperations(db)
             return ops.get_bot_telemetry(symbol)
 
+    def clear_bot_telemetry(self, symbol: str) -> None:
+        """Clear live telemetry data and position fields."""
+        with self.get_session() as db:
+            ops = DatabaseOperations(db)
+            ops.clear_bot_telemetry(symbol)
+
     def save_bot_config(self, symbol: str, config_data: Dict[str, Any]) -> None:
         """Save bot configuration."""
         with self.get_session() as db:

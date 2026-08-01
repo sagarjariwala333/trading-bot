@@ -118,6 +118,19 @@ class DatabaseOperations:
         """Get the latest live telemetry data for the dashboard."""
         state = self.db.query(BotState).filter(BotState.symbol == symbol).first()
         return state.telemetry_data if state and state.telemetry_data else {}
+
+    def clear_bot_telemetry(self, symbol: str) -> None:
+        """Clear telemetry data and reset position indicators in BotState."""
+        state = self.db.query(BotState).filter(BotState.symbol == symbol).first()
+        if state:
+            state.telemetry_data = {}
+            state.position_size = Decimal('0')
+            state.entry_price = None
+            state.unrealized_pnl = Decimal('0')
+            state.stop_loss_price = None
+            state.take_profit_price = None
+            state.updated_at = datetime.utcnow()
+            self.db.commit()
     
     def get_active_bots(self) -> List[str]:
         """Get list of active bot symbols."""

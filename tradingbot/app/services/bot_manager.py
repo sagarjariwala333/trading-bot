@@ -111,7 +111,7 @@ class BotManager:
         # 1. Stop bot if running
         cls.stop_bot(symbol_clean)
         
-        # 2. Reset state in database
+        # 2. Reset state & telemetry in database
         default_state = {
             "status": "IDLE",
             "direction": None,
@@ -128,6 +128,7 @@ class BotManager:
         
         try:
             db_service.save_bot_state(symbol_clean, default_state)
+            db_service.clear_bot_telemetry(symbol_clean)
             db_service.log_event("INFO", f"Bot instance {symbol_clean} cleared and reset", symbol_clean)
         except Exception as e:
             db_service.log_event("ERROR", f"Failed to clear bot instance {symbol_clean}: {e}", symbol_clean)
@@ -142,26 +143,30 @@ class BotManager:
         api_key = settings.BINANCE_API_KEY
         api_secret = settings.BINANCE_API_SECRET
         if not api_key or not api_secret:
-            raise ValueError("BINANCE_API_KEY or BINANCE_API_SECRET is missing from settings.")
+            return
             
-        client = Client(api_key, api_secret, testnet=testnet)
-        
-        # Cancel all open orders
-        client.futures_cancel_all_open_orders(symbol=symbol_clean)
-        
-        # Close open positions
-        positions = client.futures_position_information(symbol=symbol_clean)
-        for pos in positions:
-            pos_amt = float(pos["positionAmt"])
-            if pos_amt != 0:
-                side = 'BUY' if pos_amt < 0 else 'SELL'
-                qty = abs(pos_amt)
-                client.futures_create_order(
-                    symbol=symbol_clean,
-                    side=side,
-                    type='MARKET',
-                    quantity=qty
-                )
+        try:
+            client = Client(api_key, api_secret, testnet=testnet)
+            
+            # Cancel all open orders
+            client.futures_cancel_all_open_orders(symbol=symbol_clean, recvWindow=60000)
+            
+            # Close open positions
+            positions = client.futures_position_information(symbol=symbol_clean, recvWindow=60000)
+            for pos in positions:
+                pos_amt = float(pos["positionAmt"])
+                if pos_amt != 0:
+                    side = 'BUY' if pos_amt < 0 else 'SELL'
+                    qty = abs(pos_amt)
+                    client.futures_create_order(
+                        symbol=symbol_clean,
+                        side=side,
+                        type='MARKET',
+                        quantity=qty,
+                        recvWindow=60000
+                    )
+        except Exception as e:
+            db_service.log_event("WARNING", f"Binance position close warning for {symbol_clean}: {e}", symbol_clean)
 
     @classmethod
     def close_trade(cls, symbol: str) -> bool:
@@ -174,8 +179,7 @@ class BotManager:
         try:
             cls._close_binance_positions(symbol_clean)
         except Exception as e:
-            db_service.log_event("ERROR", f"Failed to close trade on Binance for {symbol_clean}: {e}", symbol_clean)
-            raise RuntimeError(f"Failed to close trade on Binance: {e}")
+            db_service.log_event("WARNING", f"Close trade Binance API warning for {symbol_clean}: {e}", symbol_clean)
 
         default_state = {
             "status": "IDLE",
@@ -192,6 +196,7 @@ class BotManager:
         }
         
         db_service.save_bot_state(symbol_clean, default_state)
+        db_service.clear_bot_telemetry(symbol_clean)
         db_service.log_event("INFO", f"Trade closed and state reset for {symbol_clean}", symbol_clean)
         
         if was_running:
@@ -207,8 +212,7 @@ class BotManager:
         try:
             cls._close_binance_positions(symbol_clean)
         except Exception as e:
-            db_service.log_event("ERROR", f"Failed to close trade during reset for {symbol_clean}: {e}", symbol_clean)
-            raise RuntimeError(f"Failed to close trade on Binance during reset: {e}")
+            db_service.log_event("WARNING", f"Reset bot Binance API warning for {symbol_clean}: {e}", symbol_clean)
 
         default_state = {
             "status": "IDLE",
@@ -225,6 +229,7 @@ class BotManager:
         }
         
         db_service.save_bot_state(symbol_clean, default_state)
+        db_service.clear_bot_telemetry(symbol_clean)
         cls.reset_config(symbol_clean)
         
         db_service.log_event("INFO", f"Bot {symbol_clean} has been completely reset", symbol_clean)

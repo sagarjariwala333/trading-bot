@@ -2,6 +2,7 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from app.services.bot_manager import BotManager
 import logging
+from app.services.binance_ws_service import BinanceWebSocketService
 
 router = APIRouter()
 logger = logging.getLogger("fastapi")
@@ -44,6 +45,27 @@ async def websocket_live_status(
             logger.error(f"RuntimeError in live status websocket for {symbol}: {e}")
     except Exception as e:
         logger.error(f"Error in live status websocket for {symbol}: {e}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+@router.websocket("/kline/live")
+async def websocket_kline_live(
+    websocket: WebSocket,
+    symbol: str = Query("BTCUSDT", description="Symbol for kline stream"),
+    interval: str = Query("1m", description="Kline interval, e.g., 1m,5m,1h"),
+    interval_seconds: int = Query(2, ge=1, le=10, description="Client poll interval")
+):
+    await websocket.accept()
+    try:
+        async for kline in BinanceWebSocketService.stream_klines(symbol, interval):
+            await websocket.send_json(kline)
+            await asyncio.sleep(interval_seconds)
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket client disconnected for kline {symbol}")
+    except Exception as e:
+        logger.error(f"Error in kline websocket for {symbol}: {e}")
         try:
             await websocket.close()
         except Exception:

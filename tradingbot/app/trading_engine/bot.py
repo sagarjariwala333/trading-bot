@@ -30,10 +30,12 @@ IMPORTANT: Test on Binance Futures Testnet before running with real funds.
 Requires: pip install -r requirements.txt (see that file for the exact package list)
 """
 
+import collections
 import json
 import logging
 import os
 import tempfile
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -521,11 +523,18 @@ RATE_LIMIT_BINANCE_CODES = {-1003}
 class ExchangeGateway:
     """Thin wrapper around python-binance Futures endpoints with rounding/retry helpers."""
 
+    _FSTREAM_BASE = "wss://fstream.binance.com"
+    _FSTREAM_TESTNET_BASE = "wss://stream.binancefuture.com"
+
     def __init__(self, cfg: Config, logger: logging.Logger):
         self.cfg = cfg
         self.log = logger
         self.client = Client(cfg.api_key, cfg.api_secret, testnet=cfg.testnet)
         self._symbol_info = None
+        self._kline_buffer = collections.deque(maxlen=cfg.klines_lookback + 10)
+        self._kline_buffer_lock = threading.Lock()
+        self._ws_stop_event = threading.Event()
+        self._ws_thread = None
         self.sync_clock()
 
     # ---- retry wrapper -----------------------------------------------
@@ -719,24 +728,171 @@ class ExchangeGateway:
                 return float(b["availableBalance"])
         raise RuntimeError("USDT balance not found")
 
-    def get_closed_klines(self) -> pd.DataFrame:
-        raw = self._call(
-            self.client.futures_klines,
-            symbol=self.cfg.symbol, interval=self.cfg.interval,
-            limit=self.cfg.klines_lookback,
+    # ---- WebSocket kline buffer helpers ---------------------------------
+
+    def _fill_buffer_from_rest(self):
+        """Seed the buffer with historical closed candles from REST.
+        Called once at startup so the bot has enough history to compute
+        indicators before any WS candle has actually closed."""
+        try:
+            raw = self._call(
+                self.client.futures_klines,
+                symbol=self.cfg.symbol,
+                interval=self.cfg.interval,
+                limit=self.cfg.klines_lookback,
+            )
+            now_ms = int(time.time() * 1000)
+            cols = ["open_time", "open", "high", "low", "close", "volume",
+                    "close_time", "qav", "trades", "tb_base", "tb_quote", "ignore"]
+            with self._kline_buffer_lock:
+                self._kline_buffer.clear()
+                for r in raw:
+                    row = dict(zip(cols, r))
+                    if int(row["close_time"]) < now_ms:  # only fully-closed candles
+                        for c in ["open", "high", "low", "close"]:
+                            row[c] = float(row[c])
+                        row["open_time"]  = int(row["open_time"])
+                        row["close_time"] = int(row["close_time"])
+                        self._kline_buffer.append(row)
+            self.log.info(
+                f"Kline buffer seeded with {len(self._kline_buffer)} candles from REST "
+                f"(one-time startup fetch — subsequent updates via WebSocket)."
+            )
+        except Exception as e:
+            self.log.warning(
+                f"Could not seed kline buffer from REST: {e}. "
+                f"Buffer will fill once the WS delivers the first closed candle."
+            )
+
+    def _start_kline_ws(self):
+        """Spawn a daemon thread that keeps the kline buffer current via WebSocket."""
+        self._ws_stop_event.clear()
+        self._ws_thread = threading.Thread(
+            target=self._kline_ws_thread,
+            name=f"kline-ws-{self.cfg.symbol}",
+            daemon=True,
         )
-        cols = ["open_time", "open", "high", "low", "close", "volume",
-                "close_time", "qav", "trades", "tb_base", "tb_quote", "ignore"]
-        df = pd.DataFrame(raw, columns=cols)
+        self._ws_thread.start()
+        self.log.info(
+            f"Kline WebSocket thread started for {self.cfg.symbol} @ {self.cfg.interval}."
+        )
+
+    def _kline_ws_thread(self):
+        """Background thread: connects to Binance and feeds closed candles into the buffer.
+
+        Binance stream message format::
+
+            {"stream": "btcusdt@kline_1m",
+             "data":   {"e": "kline", "k": {"t": open_time, "T": close_time, "x": is_closed, ...}}}
+
+        Only rows where ``k["x"] == True`` (candle has fully closed) are stored.
+        Reconnects automatically after any error or disconnect.
+        """
+        try:
+            import websocket as _websocket_client  # pip install websocket-client
+        except ImportError:
+            self.log.error(
+                "websocket-client is not installed. "
+                "Run: pip install websocket-client\n"
+                "Kline WebSocket will NOT run; falling back to REST on every tick."
+            )
+            return
+
+        base = self._FSTREAM_TESTNET_BASE if self.cfg.testnet else self._FSTREAM_BASE
+        stream = f"{self.cfg.symbol.lower()}@kline_{self.cfg.interval}"
+        url = f"{base}/stream?streams={stream}"
+        reconnect_delay = 5
+
+        while not self._ws_stop_event.is_set():
+            try:
+                self.log.debug(f"Kline WS connecting → {url}")
+
+                def on_message(ws_app, message):
+                    try:
+                        data = json.loads(message)
+                        k = data["data"]["k"]
+                        if not k["x"]:
+                            return  # candle still forming — ignore
+                        row = {
+                            "open_time":  int(k["t"]),
+                            "open":       float(k["o"]),
+                            "high":       float(k["h"]),
+                            "low":        float(k["l"]),
+                            "close":      float(k["c"]),
+                            "volume":     float(k["v"]),
+                            "close_time": int(k["T"]),
+                            "qav": 0, "trades": 0, "tb_base": 0, "tb_quote": 0, "ignore": 0,
+                        }
+                        with self._kline_buffer_lock:
+                            # Replace duplicate if the same candle re-arrives
+                            if (self._kline_buffer
+                                    and self._kline_buffer[-1]["open_time"] == row["open_time"]):
+                                self._kline_buffer[-1] = row
+                            else:
+                                self._kline_buffer.append(row)
+                        self.log.debug(
+                            f"WS candle closed: {self.cfg.symbol} "
+                            f"close={row['close']} t={row['open_time']}"
+                        )
+                    except Exception as exc:
+                        self.log.warning(f"Kline WS parse error: {exc}")
+
+                def on_error(ws_app, error):
+                    self.log.warning(f"Kline WS error: {error}")
+
+                def on_close(ws_app, code, msg):
+                    self.log.info(f"Kline WS closed ({code}: {msg})")
+
+                ws_app = _websocket_client.WebSocketApp(
+                    url,
+                    on_message=on_message,
+                    on_error=on_error,
+                    on_close=on_close,
+                )
+                ws_app.run_forever(ping_interval=20, ping_timeout=10)
+
+            except Exception as e:
+                self.log.warning(f"Kline WS thread exception: {e}")
+
+            if not self._ws_stop_event.is_set():
+                self.log.info(f"Kline WS reconnecting in {reconnect_delay}s...")
+                time.sleep(reconnect_delay)
+
+    def stop_kline_ws(self):
+        """Signal the WebSocket thread to stop (call on clean shutdown)."""
+        self._ws_stop_event.set()
+
+    def get_closed_klines(self) -> pd.DataFrame:
+        """Return closed candles from the in-memory WebSocket buffer.
+
+        Falls back to a REST call only when the buffer is completely empty
+        (e.g. right after startup and before the first WS candle closes).
+        On normal ticks no REST call is made — this eliminates the -1003 ban.
+        """
+        with self._kline_buffer_lock:
+            rows = list(self._kline_buffer)
+
+        if not rows:
+            # Buffer still empty (WS not connected yet, or REST seed failed while banned).
+            # Do not hammer REST on every tick — that is what triggers -1003 IP bans.
+            self.log.warning(
+                "Kline buffer empty — waiting for WebSocket (no REST fallback on tick)."
+            )
+            return pd.DataFrame(
+                columns=["open_time", "open", "high", "low", "close", "volume", "close_time"]
+            )
+
+        df = pd.DataFrame(rows)
         for c in ["open", "high", "low", "close"]:
             df[c] = df[c].astype(float)
-        df["open_time"] = df["open_time"].astype("int64")
+        df["open_time"]  = df["open_time"].astype("int64")
         df["close_time"] = df["close_time"].astype("int64")
 
         now_ms = int(time.time() * 1000)
-        df = df[df["close_time"] < now_ms].reset_index(drop=True)  # drop any still-forming candle
+        df = df[df["close_time"] < now_ms].reset_index(drop=True)
         df = df.set_index(pd.to_datetime(df["open_time"], unit="ms"))
         return df
+
 
     def get_current_price(self) -> float:
         t = self._call(self.client.futures_mark_price, symbol=self.cfg.symbol)
@@ -1346,6 +1502,9 @@ class TradingBot:
         self.notify.send(f"🤖 Bot started on {self.cfg.symbol} ({self.cfg.interval}). "
                           f"State after reconciliation: {self.state.status}"
                           + (f", {self.state.direction} trade in progress" if self.state.direction else "."))
+        # One REST seed at startup, then live closed candles via WebSocket only.
+        self.ex._fill_buffer_from_rest()
+        self.ex._start_kline_ws()
         while True:
             try:
                 self.tick()

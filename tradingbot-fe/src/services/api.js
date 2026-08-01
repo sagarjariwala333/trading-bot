@@ -64,6 +64,22 @@ export const api = {
     return res.json();
   },
 
+  async closeTrade(symbol) {
+    const res = await fetch(`${BASE_URL}/bot/close-trade?symbol=${symbol}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error(await res.text() || 'Failed to close trade');
+    return res.json();
+  },
+
+  async resetBot(symbol) {
+    const res = await fetch(`${BASE_URL}/bot/reset?symbol=${symbol}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error(await res.text() || 'Failed to reset bot');
+    return res.json();
+  },
+
   // Backtest endpoints
   async getDatasets() {
     const res = await fetch(`${BASE_URL}/backtest/datasets`);

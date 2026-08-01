@@ -33,7 +33,7 @@ function MetricCell({ label, value, unit, color }) {
   );
 }
 
-export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStart, onStop, onClear }) {
+export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStart, onStop, onClear, onCloseTrade, onReset }) {
   return (
     <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30 transition-colors duration-300">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-white/[0.05]">
@@ -90,6 +90,24 @@ export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStar
               title="Clear bot state, logs, and telemetry files"
             >
               🗑️ Clear State
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={onCloseTrade}
+              className="font-semibold text-sm px-3 py-1.5 h-auto rounded-md border border-amber-300 dark:border-amber-700 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-800/60 text-amber-800 dark:text-amber-300 transition-all duration-150"
+              title="Close open position and cancel orders"
+            >
+              ⛔ Close Trade
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={onReset}
+              className="font-semibold text-sm px-3 py-1.5 h-auto rounded-md border border-red-300 dark:border-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-800/60 text-red-800 dark:text-red-300 transition-all duration-150"
+              title="Completely reset bot state and config"
+            >
+              ⚠️ Reset
             </Button>
           </div>
         </div>

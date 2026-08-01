@@ -63,3 +63,27 @@ def clear_bot_instance(symbol: str = Query("BTCUSDT", description="Symbol of the
             return BotControlResponseSchema(success=False, message=f"Failed to clear instance for {symbol}.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clearing bot instance: {e}")
+
+
+@router.post("/close-trade", response_model=BotControlResponseSchema)
+def close_trade(symbol: str = Query("BTCUSDT", description="Symbol of the trading bot to close trade for")):
+    try:
+        success = BotManager.close_trade(symbol)
+        if success:
+            return BotControlResponseSchema(success=True, message=f"Trade for {symbol} closed successfully. Bot is waiting for next signal.")
+        else:
+            return BotControlResponseSchema(success=False, message=f"Failed to close trade for {symbol}.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error closing trade: {e}")
+
+
+@router.post("/reset", response_model=BotControlResponseSchema)
+def reset_bot(symbol: str = Query("BTCUSDT", description="Symbol of the trading bot to reset")):
+    try:
+        success = BotManager.reset_bot(symbol)
+        if success:
+            return BotControlResponseSchema(success=True, message=f"Bot for {symbol} has been completely reset.")
+        else:
+            return BotControlResponseSchema(success=False, message=f"Failed to reset bot for {symbol}.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resetting bot: {e}")

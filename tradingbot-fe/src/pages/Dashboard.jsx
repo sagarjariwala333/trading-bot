@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-
+import { cn } from '../lib/utils';
+import { Button } from '@/components/ui/button';
 
 import AlertBanner    from '../components/dashboard/AlertBanner';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -8,9 +9,11 @@ import TelemetryCard  from '../components/dashboard/TelemetryCard';
 import LogsPanel      from '../components/dashboard/LogsPanel';
 import ConfigPanel    from '../components/dashboard/ConfigPanel';
 import BacktestPanel  from '../components/dashboard/BacktestPanel';
+import ReportsPanel   from '../components/dashboard/ReportsPanel';
 
 export default function Dashboard() {
   // ── State ──────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab]     = useState('terminal'); // 'terminal' or 'reports'
   const [symbol, setSymbol]           = useState('BTCUSDT');
   const [isConnected, setIsConnected] = useState(false);
   const [errorMsg, setErrorMsg]       = useState(null);
@@ -201,23 +204,57 @@ export default function Dashboard() {
 
         <DashboardHeader isConnected={isConnected} symbol={symbol} onSymbolChange={setSymbol} />
 
-        <TelemetryCard liveStatus={liveStatus} symbol={symbol} isBotRunning={isBotRunning} onStart={handleStartBot} onStop={handleStopBot} onClear={handleClearInstance} onCloseTrade={handleCloseTrade} onReset={handleResetBot} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <LogsPanel logs={logs} />
-          <ConfigPanel
-            config={config} limits={limits} isBotRunning={isBotRunning} isConfigSaving={isConfigSaving}
-            onChange={handleConfigChange} onSave={handleSaveConfig} onReset={handleResetConfig}
-          />
+        {/* Tab view sub-navigation */}
+        <div className="flex gap-2 p-1.5 bg-white dark:bg-[#0d1220]/80 border border-slate-200 dark:border-white/[0.06] rounded-xl self-start backdrop-blur-xl">
+          <Button
+            size="sm"
+            onClick={() => setActiveTab('terminal')}
+            className={cn(
+              "font-bold text-xs px-4 py-2 rounded-lg transition-all h-auto",
+              activeTab === 'terminal'
+                ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20"
+                : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+            )}
+          >
+            💻 Live Bot Terminal
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setActiveTab('reports')}
+            className={cn(
+              "font-bold text-xs px-4 py-2 rounded-lg transition-all h-auto",
+              activeTab === 'reports'
+                ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20"
+                : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+            )}
+          >
+            📊 Analytics Reports
+          </Button>
         </div>
 
-        <BacktestPanel
-          datasets={datasets} selectedDataset={selectedDataset} onDatasetChange={setSelectedDataset}
-          backtestBalance={backtestBalance} onBalanceChange={setBacktestBalance}
-          backtestLeverage={backtestLeverage} onLeverageChange={setBacktestLeverage}
-          isBacktesting={isBacktesting} onRun={handleRunBacktest}
-          backtestResult={backtestResult}
-        />
+        {activeTab === 'terminal' ? (
+          <>
+            <TelemetryCard liveStatus={liveStatus} symbol={symbol} isBotRunning={isBotRunning} onStart={handleStartBot} onStop={handleStopBot} onClear={handleClearInstance} onCloseTrade={handleCloseTrade} onReset={handleResetBot} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <LogsPanel logs={logs} />
+              <ConfigPanel
+                config={config} limits={limits} isBotRunning={isBotRunning} isConfigSaving={isConfigSaving}
+                onChange={handleConfigChange} onSave={handleSaveConfig} onReset={handleResetConfig}
+              />
+            </div>
+
+            <BacktestPanel
+              datasets={datasets} selectedDataset={selectedDataset} onDatasetChange={setSelectedDataset}
+              backtestBalance={backtestBalance} onBalanceChange={setBacktestBalance}
+              backtestLeverage={backtestLeverage} onLeverageChange={setBacktestLeverage}
+              isBacktesting={isBacktesting} onRun={handleRunBacktest}
+              backtestResult={backtestResult}
+            />
+          </>
+        ) : (
+          <ReportsPanel />
+        )}
 
       </div>
     </div>

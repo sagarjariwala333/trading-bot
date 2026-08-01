@@ -196,10 +196,12 @@ class BotManager:
                 tp_level=state_data.get("tp_level", 0),
             )
 
-        # Get performance data as live status
+        # Get live status from telemetry
         try:
-            performance = db_service.get_performance_summary(symbol_clean, days=1)
-            live_status = performance if performance else {}
+            live_status = db_service.get_bot_telemetry(symbol_clean)
+            if not live_status:
+                performance = db_service.get_performance_summary(symbol_clean, days=1)
+                live_status = performance if performance else {}
         except Exception:
             live_status = {}
 

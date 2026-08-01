@@ -160,7 +160,7 @@ class Config:
     poll_seconds: int = 15
     klines_lookback: int = 300
     config_path: str = os.path.join(BOT_INSTANCE_DIR, "config.json")
-    live_status_file: str = os.path.join(BOT_INSTANCE_DIR, "live_status.json")
+
     state_file: str = os.path.join(BOT_INSTANCE_DIR, "bot_state.json")
     log_file: str = os.path.join(BOT_INSTANCE_DIR, "bot.log")
 
@@ -1635,7 +1635,8 @@ class TradingBot:
                 except Exception as ex:
                     self.log.debug(f"Open orders fallback scan in live status failed: {ex}")
 
-            atomic_write_json(self.cfg.live_status_file, snapshot)
+            from app.services.database_service import db_service
+            db_service.save_bot_telemetry(self.cfg.symbol, snapshot)
         except Exception as e:
             self.log.warning(f"Could not write live status snapshot: {e}")
 

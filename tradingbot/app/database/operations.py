@@ -97,6 +97,28 @@ class DatabaseOperations:
         
         self.db.commit()
     
+    def save_bot_telemetry(self, symbol: str, telemetry_data: Dict[str, Any]) -> None:
+        """Save/update live telemetry data for the dashboard."""
+        state = self.db.query(BotState).filter(BotState.symbol == symbol).first()
+        if not state:
+            state = BotState(
+                symbol=symbol,
+                state_data={},
+                status='IDLE',
+                is_running=False,
+                telemetry_data=telemetry_data
+            )
+            self.db.add(state)
+        else:
+            state.telemetry_data = telemetry_data
+            state.updated_at = datetime.utcnow()
+        self.db.commit()
+        
+    def get_bot_telemetry(self, symbol: str) -> Dict[str, Any]:
+        """Get the latest live telemetry data for the dashboard."""
+        state = self.db.query(BotState).filter(BotState.symbol == symbol).first()
+        return state.telemetry_data if state and state.telemetry_data else {}
+    
     def get_active_bots(self) -> List[str]:
         """Get list of active bot symbols."""
         states = self.db.query(BotState).filter(BotState.is_running == True).all()

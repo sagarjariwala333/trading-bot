@@ -57,6 +57,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def create_tables():
     """Create all database tables."""
+    import app.models.trading  # Ensure models are registered
     Base.metadata.create_all(bind=engine)
     
 def drop_tables():
@@ -74,6 +75,6 @@ def get_db() -> Generator[Session, None, None]:
 # Initialize tables on import
 try:
     create_tables()
-    print("✅ Database tables initialized successfully")
+    print("Database tables initialized successfully")
 except Exception as e:
-    print(f"❌ Failed to initialize database tables: {e}")
+    print(f"Failed to initialize database tables: {e}")

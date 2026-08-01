@@ -78,6 +78,7 @@ class BotState(Base, TimestampMixin):
     
     # State data
     state_data = Column(JSONType, nullable=False)
+    telemetry_data = Column(JSONType, nullable=True)
     
     # Current position info
     position_size = Column(Numeric(20, 8), default=0)

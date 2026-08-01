@@ -36,6 +36,18 @@ class TradingDatabaseService:
             
             return config
     
+    def save_bot_telemetry(self, symbol: str, telemetry: Dict[str, Any]) -> None:
+        """Save live telemetry data for the dashboard."""
+        with self.get_session() as db:
+            ops = DatabaseOperations(db)
+            ops.save_bot_telemetry(symbol, telemetry)
+
+    def get_bot_telemetry(self, symbol: str) -> Dict[str, Any]:
+        """Get live telemetry data."""
+        with self.get_session() as db:
+            ops = DatabaseOperations(db)
+            return ops.get_bot_telemetry(symbol)
+
     def save_bot_config(self, symbol: str, config_data: Dict[str, Any]) -> None:
         """Save bot configuration."""
         with self.get_session() as db:

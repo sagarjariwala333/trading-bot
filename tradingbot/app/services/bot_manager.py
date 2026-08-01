@@ -1,39 +1,18 @@
 import os
 import sys
-import json
-import signal
 import subprocess
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from app.core.config import settings
-from app.trading_engine.bot import Config, validate_config_field, atomic_write_json
+from app.services.database_service import db_service
 from app.schemas.bot import BotStateSchema, LiveStatusSchema, BotStatusResponseSchema
-from app.core.db import (
-    get_db_config, save_db_config, get_db_state, save_db_state, set_bot_active_status
-)
 
 
 class BotManager:
+    """Bot management using database-only storage (no file dependencies)."""
+    
     # Class-level dictionary to keep track of active subprocesses: {symbol: subprocess.Popen}
     _processes: Dict[str, subprocess.Popen] = {}
-
-    @classmethod
-    def get_instance_dir(cls, symbol: str) -> str:
-        symbol_clean = symbol.strip().upper()
-        dir_path = os.path.join(settings.DATA_DIR, "instances", symbol_clean)
-        abs_path = os.path.abspath(dir_path)
-        os.makedirs(abs_path, exist_ok=True)
-        return abs_path
-
-    @classmethod
-    def get_paths(cls, symbol: str) -> Dict[str, str]:
-        inst_dir = cls.get_instance_dir(symbol)
-        return {
-            "config": os.path.join(inst_dir, "config.json"),
-            "status": os.path.join(inst_dir, "live_status.json"),
-            "state": os.path.join(inst_dir, "bot_state.json"),
-            "log": os.path.join(inst_dir, "bot.log"),
-        }
 
     @classmethod
     def is_running(cls, symbol: str) -> bool:
@@ -44,10 +23,9 @@ class BotManager:
                 return True
             del cls._processes[symbol_clean]
         
-        # Fallback check DB if in-memory dict lost reference due to uvicorn hot-reload
+        # Fallback check database
         try:
-            from app.core.db import get_active_bots
-            return symbol_clean in get_active_bots()
+            return symbol_clean in db_service.get_active_bots()
         except Exception:
             return False
 
@@ -57,31 +35,24 @@ class BotManager:
         if cls.is_running(symbol_clean):
             return True
 
-        paths = cls.get_paths(symbol_clean)
+        # Ensure bot configuration exists in database
+        config = db_service.get_bot_config(symbol_clean)
+        if not config:
+            # Create default config if none exists
+            db_service.save_bot_config(symbol_clean, db_service._get_default_config(symbol_clean))
         
-        # Restore config and state from DB to local disk if they exist
-        db_cfg = get_db_config(symbol_clean)
-        if db_cfg:
-            atomic_write_json(paths["config"], db_cfg)
-        else:
-            cfg = Config(config_path=paths["config"])
-            cfg.symbol = symbol_clean
-            cfg.save_editable()
-            save_db_config(symbol_clean, cfg.to_editable_dict())
+        # Ensure bot state exists in database
+        state = db_service.get_bot_state(symbol_clean)
+        if not state:
+            # Create default state if none exists
+            db_service.save_bot_state(symbol_clean, db_service._get_default_state())
 
-        db_state = get_db_state(symbol_clean)
-        if db_state:
-            if db_state.get("status") == "IDLE":
-                db_state["realized_pnl"] = 0.0
-                save_db_state(symbol_clean, db_state)
-            atomic_write_json(paths["state"], db_state)
-
-        # Mark bot as active in DB
-        set_bot_active_status(symbol_clean, True)
+        # Mark bot as active in database
+        db_service.set_bot_active(symbol_clean, True)
 
         # Build env variables
         env = os.environ.copy()
-        env["BOT_INSTANCE_DIR"] = cls.get_instance_dir(symbol_clean)
+        env["BOT_SYMBOL"] = symbol_clean  # Pass symbol via environment
         env["PYTHONUNBUFFERED"] = "1"
         env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         
@@ -94,6 +65,8 @@ class BotManager:
             env["TELEGRAM_BOT_TOKEN"] = settings.TELEGRAM_BOT_TOKEN
         if settings.TELEGRAM_CHAT_ID:
             env["TELEGRAM_CHAT_ID"] = settings.TELEGRAM_CHAT_ID
+        if settings.DATABASE_URL:
+            env["DATABASE_URL"] = settings.DATABASE_URL
 
         # Launch app/trading_engine/bot.py as a subprocess
         bot_script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "trading_engine", "bot.py"))
@@ -102,7 +75,6 @@ class BotManager:
         process = subprocess.Popen(
             [sys.executable, bot_script_path],
             env=env,
-            cwd=os.path.abspath(settings.DATA_DIR),
             stdout=subprocess.DEVNULL,
             stderr=sys.stderr,
         )
@@ -112,9 +84,9 @@ class BotManager:
     @classmethod
     def stop_bot(cls, symbol: str) -> bool:
         symbol_clean = symbol.strip().upper()
-        # Always set active status to False in DB first
+        # Set active status to False in database
         try:
-            set_bot_active_status(symbol_clean, False)
+            db_service.set_bot_active(symbol_clean, False)
         except Exception:
             pass
         
@@ -138,10 +110,7 @@ class BotManager:
         # 1. Stop bot if running
         cls.stop_bot(symbol_clean)
         
-        # 2. Get file paths
-        paths = cls.get_paths(symbol_clean)
-        
-        # 3. Truncate/reset state, status, and log files
+        # 2. Reset state in database
         default_state = {
             "status": "IDLE",
             "direction": None,
@@ -152,22 +121,15 @@ class BotManager:
             "atr_at_signal": None,
             "signal_candle_time": None,
             "tp_level": 0,
-            "last_resized_qty": None
+            "last_resized_qty": None,
+            "realized_pnl": 0.0
         }
-        atomic_write_json(paths["state"], default_state)
-        atomic_write_json(paths["status"], {})
         
         try:
-            with open(paths["log"], "w") as f:
-                f.write("")
-        except Exception:
-            pass
-
-        # 4. Reset state in PostgreSQL database
-        try:
-            save_db_state(symbol_clean, default_state)
-        except Exception:
-            pass
+            db_service.save_bot_state(symbol_clean, default_state)
+            db_service.log_event("INFO", f"Bot instance {symbol_clean} cleared and reset", symbol_clean)
+        except Exception as e:
+            db_service.log_event("ERROR", f"Failed to clear bot instance {symbol_clean}: {e}", symbol_clean)
 
         return True
 
@@ -206,13 +168,19 @@ class BotManager:
     @classmethod
     def get_bot_status(cls, symbol: str, log_lines: int = 50) -> BotStatusResponseSchema:
         symbol_clean = symbol.strip().upper()
-        paths = cls.get_paths(symbol_clean)
         running = cls.is_running(symbol_clean)
         
-        # Fallback to local files if DB read returns nothing
-        state_data = get_db_state(symbol_clean) or cls.read_json_safe(paths["state"], {})
-        status_data = cls.read_json_safe(paths["status"], {})
-        logs = cls.tail_log_lines(paths["log"], log_lines)
+        # Get state from database
+        state_data = db_service.get_bot_state(symbol_clean)
+        
+        # Get recent logs from database
+        logs = []
+        try:
+            log_entries = db_service.get_recent_logs(symbol_clean, limit=log_lines)
+            logs = [f"{entry['timestamp']} [{entry['level']}] {entry['message']}" 
+                   for entry in log_entries]
+        except Exception:
+            logs = ["Database logging not available"]
 
         bot_state = None
         if state_data:
@@ -228,51 +196,57 @@ class BotManager:
                 tp_level=state_data.get("tp_level", 0),
             )
 
+        # Get performance data as live status
+        try:
+            performance = db_service.get_performance_summary(symbol_clean, days=1)
+            live_status = performance if performance else {}
+        except Exception:
+            live_status = {}
+
         return BotStatusResponseSchema(
             is_running=running,
             bot_state=bot_state,
-            live_status=status_data if status_data else None,
+            live_status=live_status,
             logs=logs,
         )
 
     @classmethod
     def get_config(cls, symbol: str) -> Dict[str, Any]:
         symbol_clean = symbol.strip().upper()
-        paths = cls.get_paths(symbol_clean)
-        
-        # Load from DB primarily
-        db_cfg = get_db_config(symbol_clean)
-        if db_cfg:
-            return db_cfg
-            
-        # Fallback/create defaults if not exists
-        cfg = Config(config_path=paths["config"])
-        cfg.symbol = symbol_clean
-        cfg.save_editable()
-        save_db_config(symbol_clean, cfg.to_editable_dict())
-        return cfg.to_editable_dict()
+        return db_service.get_bot_config(symbol_clean)
 
     @classmethod
     def update_config(cls, symbol: str, new_config: Dict[str, Any]) -> tuple:
         symbol_clean = symbol.strip().upper()
-        paths = cls.get_paths(symbol_clean)
+        
+        # Get existing config
         existing = cls.get_config(symbol_clean)
         
+        # Validate new config fields
         clean = {}
         errors = []
-        for k, v in new_config.items():
-            clean_value, error = validate_config_field(k, v)
-            if error is not None:
-                errors.append(error)
-                continue
-            clean[k] = clean_value
+        
+        # Import validation function
+        try:
+            from app.trading_engine.bot import validate_config_field
             
+            for k, v in new_config.items():
+                clean_value, error = validate_config_field(k, v)
+                if error is not None:
+                    errors.append(error)
+                    continue
+                clean[k] = clean_value
+        except ImportError:
+            # If validation not available, use values as-is
+            clean = new_config
+            
+        # Update existing config
         existing.update(clean)
         
         try:
-            # Write to both database and local config cache
-            save_db_config(symbol_clean, existing)
-            atomic_write_json(paths["config"], existing)
+            # Save to database
+            db_service.save_bot_config(symbol_clean, existing)
+            db_service.log_event("INFO", f"Config updated for {symbol_clean}", symbol_clean)
             return existing, errors
         except Exception as e:
             raise RuntimeError(f"Could not save config: {e}")
@@ -280,21 +254,21 @@ class BotManager:
     @classmethod
     def reset_config(cls, symbol: str) -> Dict[str, Any]:
         symbol_clean = symbol.strip().upper()
-        paths = cls.get_paths(symbol_clean)
         
+        # Get current config to preserve symbol and interval
         current = cls.get_config(symbol_clean)
         preserved_symbol = current.get("symbol") or symbol_clean
         preserved_interval = current.get("interval") or "12h"
         
-        # Load default values
-        defaults = Config(config_path=paths["config"]).to_editable_dict()
+        # Get default config
+        defaults = db_service._get_default_config(symbol_clean)
         defaults["symbol"] = preserved_symbol
         defaults["interval"] = preserved_interval
         
         try:
-            # Write to both database and local config cache
-            save_db_config(symbol_clean, defaults)
-            atomic_write_json(paths["config"], defaults)
+            # Save to database
+            db_service.save_bot_config(symbol_clean, defaults)
+            db_service.log_event("INFO", f"Config reset to defaults for {symbol_clean}", symbol_clean)
             return defaults
         except Exception as e:
             raise RuntimeError(f"Could not reset config: {e}")

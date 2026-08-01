@@ -1,64 +1,87 @@
 import json
 import logging
-import os
+from typing import Dict, Any
 from sqlalchemy import create_engine, text
 from app.core.config import settings
 
 logger = logging.getLogger("ha_alma_bot")
 
-# Resolve database URL
-db_url = settings.DATABASE_URL
-if not db_url:
-    # Use SQLite fallback
-    db_dir = os.path.abspath(settings.DATA_DIR)
-    os.makedirs(db_dir, exist_ok=True)
-    sqlite_path = os.path.join(db_dir, "tradingbot.db")
-    db_url = f"sqlite:///{sqlite_path}"
-else:
-    # Render and some providers use "postgres://", but SQLAlchemy requires "postgresql://"
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+def get_database_url() -> str:
+    """Get the database URL, with fallback to SQLite for development."""
+    db_url = settings.DATABASE_URL
+    if not db_url:
+        # SQLite fallback for development only
+        import os
+        db_dir = os.path.abspath(settings.DATA_DIR)
+        os.makedirs(db_dir, exist_ok=True)
+        sqlite_path = os.path.join(db_dir, "tradingbot.db")
+        db_url = f"sqlite:///{sqlite_path}"
+        logger.warning("Using SQLite fallback - not recommended for production")
+    else:
+        # Normalize postgres:// to postgresql://
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+    
+    return db_url
 
-# Create engine
-engine = create_engine(
-    db_url,
-    pool_pre_ping=True,
-    # SQLite doesn't support pool size or overflow parameters
-    **({"pool_size": 5, "max_overflow": 10} if not db_url.startswith("sqlite") else {})
-)
+# Create engine with optimized settings
+db_url = get_database_url()
+is_sqlite = db_url.startswith("sqlite")
+
+engine_kwargs = {"pool_pre_ping": True}
+if not is_sqlite:
+    engine_kwargs.update({
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_recycle": 3600,  # Recycle connections every hour
+    })
+
+engine = create_engine(db_url, **engine_kwargs)
 
 def init_db():
-    """Create tables if they do not exist."""
-    is_sqlite = db_url.startswith("sqlite")
+    """Initialize database tables for legacy structure."""
     json_type = "TEXT" if is_sqlite else "JSONB"
     
     with engine.begin() as conn:
-        # Create configs table
+        # Bot configurations table (legacy structure)
         conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS bot_configs (
                 symbol VARCHAR(20) PRIMARY KEY,
-                config_data {json_type} NOT NULL
+                config_data {json_type} NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """))
         
-        # Create states table
+        # Bot states table (legacy structure)
         conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS bot_states (
                 symbol VARCHAR(20) PRIMARY KEY,
-                state_data {json_type} NOT NULL
+                state_data {json_type} NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """))
         
-        # Create active bots table
+        # Active bots tracking (legacy structure)
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS active_bots (
                 symbol VARCHAR(20) PRIMARY KEY,
-                is_running BOOLEAN NOT NULL DEFAULT FALSE
+                is_running BOOLEAN NOT NULL DEFAULT FALSE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """))
+        
+        # Add indexes for better performance (PostgreSQL only)
+        if not is_sqlite:
+            try:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_bot_configs_symbol ON bot_configs(symbol)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_bot_states_symbol ON bot_states(symbol)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_active_bots_running ON active_bots(is_running)"))
+            except Exception:
+                pass  # Indexes might already exist
+    
     logger.info("Database tables initialized successfully.")
 
-def get_db_config(symbol: str) -> dict:
+def get_db_config(symbol: str) -> Dict[str, Any]:
     """Fetch bot configuration from the database."""
     symbol_clean = symbol.strip().upper()
     with engine.connect() as conn:
@@ -68,32 +91,30 @@ def get_db_config(symbol: str) -> dict:
         ).fetchone()
         if result:
             val = result[0]
-            return json.loads(val) if isinstance(val, str) else val
+            # Handle both JSON string (SQLite) and dict (PostgreSQL JSONB)
+            if isinstance(val, str):
+                return json.loads(val)
+            else:
+                return val or {}
     return {}
 
-def save_db_config(symbol: str, config_data: dict) -> None:
+def save_db_config(symbol: str, config_data: Dict[str, Any]) -> None:
     """Save/update bot configuration in the database."""
     symbol_clean = symbol.strip().upper()
-    is_sqlite = db_url.startswith("sqlite")
+    
+    # Always serialize to JSON string (raw text queries require this)
     serialized = json.dumps(config_data)
     
     with engine.begin() as conn:
-        if is_sqlite:
-            # SQLite upsert
-            conn.execute(text("""
-                INSERT INTO bot_configs (symbol, config_data)
-                VALUES (:symbol, :config)
-                ON CONFLICT(symbol) DO UPDATE SET config_data = :config
-            """), {"symbol": symbol_clean, "config": serialized})
-        else:
-            # Postgres upsert
-            conn.execute(text("""
-                INSERT INTO bot_configs (symbol, config_data)
-                VALUES (:symbol, :config)
-                ON CONFLICT(symbol) DO UPDATE SET config_data = EXCLUDED.config_data
-            """), {"symbol": symbol_clean, "config": serialized})
+        conn.execute(text("""
+            INSERT INTO bot_configs (symbol, config_data, updated_at)
+            VALUES (:symbol, :config, CURRENT_TIMESTAMP)
+            ON CONFLICT(symbol) DO UPDATE SET 
+                config_data = EXCLUDED.config_data,
+                updated_at = CURRENT_TIMESTAMP
+        """), {"symbol": symbol_clean, "config": serialized})
 
-def get_db_state(symbol: str) -> dict:
+def get_db_state(symbol: str) -> Dict[str, Any]:
     """Fetch bot state from the database."""
     symbol_clean = symbol.strip().upper()
     with engine.connect() as conn:
@@ -103,28 +124,28 @@ def get_db_state(symbol: str) -> dict:
         ).fetchone()
         if result:
             val = result[0]
-            return json.loads(val) if isinstance(val, str) else val
+            # Handle both JSON string (SQLite) and dict (PostgreSQL JSONB)
+            if isinstance(val, str):
+                return json.loads(val)
+            else:
+                return val or {}
     return {}
 
-def save_db_state(symbol: str, state_data: dict) -> None:
+def save_db_state(symbol: str, state_data: Dict[str, Any]) -> None:
     """Save/update bot state in the database."""
     symbol_clean = symbol.strip().upper()
-    is_sqlite = db_url.startswith("sqlite")
+    
+    # Always serialize to JSON string (raw text queries require this)
     serialized = json.dumps(state_data)
     
     with engine.begin() as conn:
-        if is_sqlite:
-            conn.execute(text("""
-                INSERT INTO bot_states (symbol, state_data)
-                VALUES (:symbol, :state)
-                ON CONFLICT(symbol) DO UPDATE SET state_data = :state
-            """), {"symbol": symbol_clean, "state": serialized})
-        else:
-            conn.execute(text("""
-                INSERT INTO bot_states (symbol, state_data)
-                VALUES (:symbol, :state)
-                ON CONFLICT(symbol) DO UPDATE SET state_data = EXCLUDED.state_data
-            """), {"symbol": symbol_clean, "state": serialized})
+        conn.execute(text("""
+            INSERT INTO bot_states (symbol, state_data, updated_at)
+            VALUES (:symbol, :state, CURRENT_TIMESTAMP)
+            ON CONFLICT(symbol) DO UPDATE SET 
+                state_data = EXCLUDED.state_data,
+                updated_at = CURRENT_TIMESTAMP
+        """), {"symbol": symbol_clean, "state": serialized})
 
 def get_active_bots() -> list:
     """Get list of symbols that should be actively running."""
@@ -139,9 +160,11 @@ def set_bot_active_status(symbol: str, is_running: bool) -> None:
     symbol_clean = symbol.strip().upper()
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO active_bots (symbol, is_running)
-            VALUES (:symbol, :is_running)
-            ON CONFLICT(symbol) DO UPDATE SET is_running = :is_running
+            INSERT INTO active_bots (symbol, is_running, updated_at)
+            VALUES (:symbol, :is_running, CURRENT_TIMESTAMP)
+            ON CONFLICT(symbol) DO UPDATE SET 
+                is_running = EXCLUDED.is_running,
+                updated_at = CURRENT_TIMESTAMP
         """), {"symbol": symbol_clean, "is_running": is_running})
 
 # Auto-initialize database tables on import

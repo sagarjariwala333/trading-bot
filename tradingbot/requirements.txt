@@ -10,5 +10,7 @@ python-dotenv>=1.0.0
 websockets>=11.0
 websocket-client>=1.6.0
 
+# Database
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
+alembic>=1.13.0

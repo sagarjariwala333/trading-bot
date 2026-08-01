@@ -56,3 +56,5 @@ __pycache__/
 *.pyd
 
 tradingbot.db
+
+**/tradingbot.db

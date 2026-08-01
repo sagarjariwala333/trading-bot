@@ -22,15 +22,18 @@ async def websocket_live_status(
     
     try:
         while True:
-            # Gather bot status
+            # Gather bot status and DB logs
             status_data = BotManager.get_bot_status(symbol, log_lines=30)
-            
+            from app.services.database_service import db_service
+            db_logs = db_service.get_recent_logs(symbol=symbol, limit=50)
+
             # Serialize status data to a dict
             payload = {
                 "is_running": status_data.is_running,
                 "bot_state": status_data.bot_state.model_dump() if status_data.bot_state else None,
                 "live_status": status_data.live_status,
-                "logs": status_data.logs
+                "logs": status_data.logs,
+                "structured_logs": db_logs
             }
             
             await websocket.send_json(payload)

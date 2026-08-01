@@ -40,15 +40,39 @@ def stop_bot(symbol: str = Query("BTCUSDT", description="Symbol of the trading b
         raise HTTPException(status_code=500, detail=f"Error stopping trading bot: {e}")
 
 
-@router.get("/logs", response_model=LogTailResponseSchema)
+@router.get("/logs")
 def get_bot_logs(
-    symbol: str = Query("BTCUSDT", description="Symbol of the trading bot"),
-    lines: int = Query(100, ge=1, le=2000)
+    symbol: str = Query("BTCUSDT", description="Symbol of the trading bot or 'ALL'"),
+    level: str = Query("ALL", description="Log level filter: ALL, INFO, WARNING, ERROR"),
+    search: str = Query(None, description="Keyword search query"),
+    lines: int = Query(150, ge=1, le=2000)
 ):
     try:
+        from app.services.database_service import db_service
+        db_logs = db_service.get_recent_logs(
+            symbol=symbol if symbol != "ALL" else None,
+            level=level if level != "ALL" else None,
+            search=search,
+            limit=lines
+        )
+        
+        # If DB logs exist, return structured dict list
+        if db_logs:
+            formatted_logs = [
+                f"{entry['timestamp'][:19] if entry['timestamp'] else ''} [{entry['level']}] {entry['message']}"
+                for entry in db_logs
+            ]
+            return {"logs": formatted_logs, "line_count": len(formatted_logs), "structured": db_logs}
+
+        # Fallback to file logs if DB is empty
         paths = BotManager.get_paths(symbol)
         logs = BotManager.tail_log_lines(paths["log"], n=lines)
-        return LogTailResponseSchema(logs=logs, line_count=len(logs))
+        if search:
+            logs = [l for l in logs if search.lower() in l.lower()]
+        if level != "ALL":
+            logs = [l for l in logs if level.upper() in l.upper()]
+            
+        return {"logs": logs, "line_count": len(logs), "structured": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching bot logs: {e}")
 

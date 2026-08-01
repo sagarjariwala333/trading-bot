@@ -50,8 +50,10 @@ export const api = {
     return res.json();
   },
 
-  async getBotLogs(symbol, lines = 100) {
-    const res = await fetch(`${BASE_URL}/bot/logs?symbol=${symbol}&lines=${lines}`);
+  async getBotLogs(symbol, lines = 150, level = 'ALL', search = '') {
+    let url = `${BASE_URL}/bot/logs?symbol=${symbol}&lines=${lines}&level=${level}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(await res.text() || 'Failed to fetch bot logs');
     return res.json();
   },

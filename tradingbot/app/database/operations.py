@@ -298,16 +298,20 @@ class DatabaseOperations:
         self.db.commit()
     
     def get_recent_logs(self, level: str = None, symbol: str = None, 
-                       hours: int = 24, limit: int = 100) -> List[SystemLog]:
-        """Get recent system logs."""
-        since_time = datetime.utcnow() - timedelta(hours=hours)
+                       hours: int = 24, limit: int = 100, search: str = None) -> List[SystemLog]:
+        """Get recent system logs with level, symbol, and keyword search filters."""
+        query = self.db.query(SystemLog)
+        if hours and hours > 0:
+            since_time = datetime.utcnow() - timedelta(hours=hours)
+            query = query.filter(SystemLog.created_at >= since_time)
         
-        query = self.db.query(SystemLog).filter(SystemLog.created_at >= since_time)
-        
-        if level:
+        if level and level.upper() != "ALL":
             query = query.filter(SystemLog.level == level.upper())
         
-        if symbol:
+        if symbol and symbol.upper() != "ALL":
             query = query.filter(SystemLog.symbol == symbol)
+
+        if search:
+            query = query.filter(SystemLog.message.ilike(f"%{search}%"))
         
         return query.order_by(desc(SystemLog.created_at)).limit(limit).all()

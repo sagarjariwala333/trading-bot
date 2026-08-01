@@ -198,15 +198,15 @@ class TradingDatabaseService:
             ops.log_event(level, message, symbol, extra_data)
     
     def get_recent_logs(self, symbol: str = None, level: str = None,
-                       hours: int = 24, limit: int = 100) -> List[Dict]:
-        """Get recent log entries."""
+                       hours: int = 72, limit: int = 150, search: str = None) -> List[Dict]:
+        """Get recent log entries with filtering."""
         with self.get_session() as db:
             ops = DatabaseOperations(db)
-            logs = ops.get_recent_logs(level, symbol, hours, limit)
+            logs = ops.get_recent_logs(level=level, symbol=symbol, hours=hours, limit=limit, search=search)
             
             return [
                 {
-                    'timestamp': log.created_at,
+                    'timestamp': log.created_at.isoformat() if log.created_at else None,
                     'level': log.level,
                     'message': log.message,
                     'symbol': log.symbol,

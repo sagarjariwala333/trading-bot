@@ -1,6 +1,0 @@
-2026-07-26 22:34:54,405 | INFO | Clock resynced against Binance - offset now -59293ms.
-2026-07-26 22:34:55,043 | INFO | Clock resynced against Binance - offset now -59338ms.
-2026-07-26 22:34:55,618 | INFO | Bot started. State on load: BotState(status='IDLE', direction=None, entry1_order_id=None, entry2_order_id=None, sl_order_id=None, tp_order_id=None, atr_at_signal=None, signal_candle_time=None, tp_level=0, last_resized_qty=None, realized_pnl=0.0)
-2026-07-26 22:34:55,619 | INFO | Running startup reconciliation against Binance...
-2026-07-26 22:34:56,234 | WARNING | Reconciliation: found 16 order(s) on BTCUSDT that this bot did NOT place (no matching clientOrderId prefix) - leaving them completely untouched. This bot assumes exclusive control of this symbol; if you're placing orders manually on it too, that assumption breaks.
-2026-07-26 22:34:56,235 | INFO | Reconciliation: flat, matches saved state. Nothing to do.

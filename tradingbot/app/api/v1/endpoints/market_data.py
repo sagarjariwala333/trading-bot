@@ -23,18 +23,25 @@ def download_historical_data(payload: MarketDownloadRequestSchema):
 @router.get("/klines", response_model=List[RawKlineSchema])
 def get_klines(
     symbol: str = Query("BTCUSDT", description="Symbol to fetch klines for"),
-    interval: str = Query("12h", description="Timeframe interval"),
+    interval: str = Query(None, description="Timeframe interval (defaults to symbol config timeframe)"),
     limit: int = Query(100, ge=1, le=1500, description="Number of candles to fetch")
 ):
     try:
+        from app.services.bot_manager import BotManager
+        cfg = BotManager.get_config(symbol)
+        chosen_interval = interval or cfg.get("interval", "12h")
+
         # Fetch directly from Binance API for visualization in the UI
-        df = MarketDataService.fetch_klines_raw(symbol, interval, limit)
+        df = MarketDataService.fetch_klines_raw(symbol, chosen_interval, limit)
         return df
     except Exception as e:
         # Fallback to local indicator fetch
         try:
             from app.services.indicator_service import IndicatorService
-            df = IndicatorService.fetch_live_klines(symbol, interval, limit)
+            from app.services.bot_manager import BotManager
+            cfg = BotManager.get_config(symbol)
+            chosen_interval = interval or cfg.get("interval", "12h")
+            df = IndicatorService.fetch_live_klines(symbol, chosen_interval, limit)
             klines = []
             for ts, r in df.iterrows():
                 klines.append(

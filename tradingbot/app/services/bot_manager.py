@@ -50,6 +50,7 @@ class BotManager:
 
         # Mark bot as active in database
         db_service.set_bot_active(symbol_clean, True)
+        db_service.log_event("INFO", f"Starting bot process for {symbol_clean} [Timeframe Interval: {config.get('interval', '12h')}]", symbol_clean)
 
         # Build env variables
         env = os.environ.copy()
@@ -350,7 +351,7 @@ class BotManager:
         try:
             # Save to database
             db_service.save_bot_config(symbol_clean, existing)
-            db_service.log_event("INFO", f"Config updated for {symbol_clean}", symbol_clean)
+            db_service.log_event("INFO", f"Config updated for {symbol_clean} [Timeframe Interval: {existing.get('interval', '12h')}]", symbol_clean)
             return existing, errors
         except Exception as e:
             raise RuntimeError(f"Could not save config: {e}")

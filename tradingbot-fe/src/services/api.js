@@ -110,15 +110,19 @@ export const api = {
     return res.json();
   },
 
-  async getKlines(symbol, interval = '1h', limit = 100) {
-    const res = await fetch(`${BASE_URL}/market/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  async getKlines(symbol, interval = null, limit = 100) {
+    let url = `${BASE_URL}/market/klines?symbol=${symbol}&limit=${limit}`;
+    if (interval) url += `&interval=${interval}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(await res.text() || 'Failed to fetch klines');
     return res.json();
   },
 
   // Indicators endpoints
-  async getLatestSignal(symbol, interval = '1h') {
-    const res = await fetch(`${BASE_URL}/indicators/latest?symbol=${symbol}&interval=${interval}`);
+  async getLatestSignal(symbol, interval = null) {
+    let url = `${BASE_URL}/indicators/latest?symbol=${symbol}`;
+    if (interval) url += `&interval=${interval}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(await res.text() || 'Failed to fetch latest signal');
     return res.json();
   },

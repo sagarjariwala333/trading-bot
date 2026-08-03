@@ -1485,7 +1485,7 @@ class TradingBot:
             self.notify.send(f"🛑 Bot could NOT start on {self.cfg.symbol}: {e}\n"
                               f"This needs to be fixed before the bot can safely trade.")
             raise
-        self.log.info(f"Bot started. State on load: {self.state}")
+        self.log.info(f"Bot started on {self.cfg.symbol} [Timeframe Interval: {self.cfg.interval}]. State on load: {self.state}")
         try:
             self.reconcile_on_startup()
         except Exception as e:

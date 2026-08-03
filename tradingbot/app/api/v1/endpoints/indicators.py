@@ -10,15 +10,16 @@ router = APIRouter()
 @router.get("/latest", response_model=LatestSignalResponseSchema)
 def get_latest_signal(
     symbol: str = Query("BTCUSDT", description="Symbol to evaluate signal for"),
-    interval: str = Query("12h", description="Candle interval")
+    interval: str = Query(None, description="Candle interval (defaults to symbol config timeframe)")
 ):
     try:
-        # Load custom periods from symbol configuration if they exist
+        # Load custom periods and interval from symbol configuration
         cfg = BotManager.get_config(symbol)
+        chosen_interval = interval or cfg.get("interval", "12h")
         
         return IndicatorService.evaluate_latest_signal(
             symbol=symbol,
-            interval=interval,
+            interval=chosen_interval,
             alma_window=cfg.get("alma_window", 9),
             rsi_period=cfg.get("rsi_period", 14),
             rsi_sma_period=cfg.get("rsi_sma_period", 14),

@@ -84,6 +84,21 @@ def ensure_subscribed(symbol: str = "BTCUSDT"):
     _pollers[symbol] = t
 
 
+def fetch_direct(symbol: str) -> Optional[float]:
+    """Perform a direct REST fetch for mark price."""
+    try:
+        resp = requests.get(_PREMIUM_INDEX_URL, params={"symbol": symbol}, timeout=5)
+        resp.raise_for_status()
+        price = float(resp.json()["markPrice"])
+        if price > 0:
+            with _lock:
+                _latest[symbol] = {"mark_price": price, "updated_at": time.time()}
+            return price
+    except Exception:
+        pass
+    return None
+
+
 def get_mark_price(symbol: str = "BTCUSDT") -> Optional[float]:
     """Return the latest mark price for *symbol*, or ``None`` if unavailable.
 
@@ -99,7 +114,8 @@ def get_mark_price(symbol: str = "BTCUSDT") -> Optional[float]:
         entry = _latest.get(symbol)
 
     if not entry:
-        return None
+        # Immediate fallback for the very first read
+        return fetch_direct(symbol)
 
     return entry["mark_price"]
 

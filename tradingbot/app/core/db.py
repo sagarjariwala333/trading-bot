@@ -106,13 +106,17 @@ def save_db_config(symbol: str, config_data: Dict[str, Any]) -> None:
     serialized = json.dumps(config_data)
     
     with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO bot_configs (symbol, config_data, updated_at)
-            VALUES (:symbol, :config, CURRENT_TIMESTAMP)
-            ON CONFLICT(symbol) DO UPDATE SET 
-                config_data = EXCLUDED.config_data,
-                updated_at = CURRENT_TIMESTAMP
+        res = conn.execute(text("""
+            UPDATE bot_configs 
+            SET config_data = :config, updated_at = CURRENT_TIMESTAMP 
+            WHERE symbol = :symbol
         """), {"symbol": symbol_clean, "config": serialized})
+        
+        if res.rowcount == 0:
+            conn.execute(text("""
+                INSERT INTO bot_configs (symbol, config_data, updated_at)
+                VALUES (:symbol, :config, CURRENT_TIMESTAMP)
+            """), {"symbol": symbol_clean, "config": serialized})
 
 def get_db_state(symbol: str) -> Dict[str, Any]:
     """Fetch bot state from the database."""
@@ -137,15 +141,35 @@ def save_db_state(symbol: str, state_data: Dict[str, Any]) -> None:
     
     # Always serialize to JSON string (raw text queries require this)
     serialized = json.dumps(state_data)
+    status_val = state_data.get("status", "IDLE") if isinstance(state_data, dict) else "IDLE"
     
     with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO bot_states (symbol, state_data, updated_at)
-            VALUES (:symbol, :state, CURRENT_TIMESTAMP)
-            ON CONFLICT(symbol) DO UPDATE SET 
-                state_data = EXCLUDED.state_data,
-                updated_at = CURRENT_TIMESTAMP
-        """), {"symbol": symbol_clean, "state": serialized})
+        # Try UPDATE with status column if table has it
+        try:
+            res = conn.execute(text("""
+                UPDATE bot_states 
+                SET state_data = :state, status = :status, updated_at = CURRENT_TIMESTAMP 
+                WHERE symbol = :symbol
+            """), {"symbol": symbol_clean, "state": serialized, "status": status_val})
+        except Exception:
+            res = conn.execute(text("""
+                UPDATE bot_states 
+                SET state_data = :state, updated_at = CURRENT_TIMESTAMP 
+                WHERE symbol = :symbol
+            """), {"symbol": symbol_clean, "state": serialized})
+
+        if res.rowcount == 0:
+            # Try INSERT with status & is_running columns for Postgres schema compatibility
+            try:
+                conn.execute(text("""
+                    INSERT INTO bot_states (symbol, status, is_running, state_data, updated_at)
+                    VALUES (:symbol, :status, TRUE, :state, CURRENT_TIMESTAMP)
+                """), {"symbol": symbol_clean, "status": status_val, "state": serialized})
+            except Exception:
+                conn.execute(text("""
+                    INSERT INTO bot_states (symbol, state_data, updated_at)
+                    VALUES (:symbol, :state, CURRENT_TIMESTAMP)
+                """), {"symbol": symbol_clean, "state": serialized})
 
 def get_active_bots() -> list:
     """Get list of symbols that should be actively running."""
@@ -159,13 +183,17 @@ def set_bot_active_status(symbol: str, is_running: bool) -> None:
     """Set running status for a bot in active_bots table."""
     symbol_clean = symbol.strip().upper()
     with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO active_bots (symbol, is_running, updated_at)
-            VALUES (:symbol, :is_running, CURRENT_TIMESTAMP)
-            ON CONFLICT(symbol) DO UPDATE SET 
-                is_running = EXCLUDED.is_running,
-                updated_at = CURRENT_TIMESTAMP
+        res = conn.execute(text("""
+            UPDATE active_bots 
+            SET is_running = :is_running, updated_at = CURRENT_TIMESTAMP 
+            WHERE symbol = :symbol
         """), {"symbol": symbol_clean, "is_running": is_running})
+        
+        if res.rowcount == 0:
+            conn.execute(text("""
+                INSERT INTO active_bots (symbol, is_running, updated_at)
+                VALUES (:symbol, :is_running, CURRENT_TIMESTAMP)
+            """), {"symbol": symbol_clean, "is_running": is_running})
 
 # Auto-initialize database tables on import
 try:

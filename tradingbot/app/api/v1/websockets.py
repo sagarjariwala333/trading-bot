@@ -1,11 +1,18 @@
 import asyncio
+import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from app.services.bot_manager import BotManager
 import logging
 from app.services.binance_ws_service import BinanceWebSocketService
+from app.services.mark_price_service import get_mark_price, get_mark_price_updated_at
 
 router = APIRouter()
 logger = logging.getLogger("fastapi")
+
+# How many seconds of telemetry age before we flag data as stale.
+# The bot writes telemetry every poll_seconds (default 15s), so 30s
+# gives ~2 missed writes of headroom.
+TELEMETRY_STALE_THRESHOLD_SECONDS = 30
 
 
 @router.websocket("/live")
@@ -27,13 +34,32 @@ async def websocket_live_status(
             from app.services.database_service import db_service
             db_logs = db_service.get_recent_logs(symbol=symbol, limit=50)
 
+            # ── Always-fresh mark price from Binance WebSocket stream ────
+            #    get_mark_price() is a non-blocking in-memory read;
+            #    the background thread keeps the value updated every ~1s.
+            live_mark_price = get_mark_price(symbol)
+            mark_price_updated_at = get_mark_price_updated_at(symbol)
+
+            # ── Staleness detection on bot telemetry ─────────────────────
+            telemetry = status_data.live_status or {}
+            telemetry_ts = telemetry.get("timestamp")
+            now = time.time()
+            data_stale = True  # Assume stale unless proven fresh
+            if telemetry_ts:
+                age = now - float(telemetry_ts)
+                data_stale = age > TELEMETRY_STALE_THRESHOLD_SECONDS
+
             # Serialize status data to a dict
             payload = {
                 "is_running": status_data.is_running,
                 "bot_state": status_data.bot_state.model_dump() if status_data.bot_state else None,
                 "live_status": status_data.live_status,
                 "logs": status_data.logs,
-                "structured_logs": db_logs
+                "structured_logs": db_logs,
+                # ── New fields for live mark price ───────────────────────
+                "mark_price": live_mark_price,
+                "mark_price_updated_at": mark_price_updated_at,
+                "data_stale": data_stale,
             }
             
             await websocket.send_json(payload)

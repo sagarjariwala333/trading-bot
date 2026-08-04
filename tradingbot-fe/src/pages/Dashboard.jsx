@@ -32,6 +32,9 @@ export default function Dashboard() {
   const [backtestLeverage, setBacktestLeverage] = useState(10);
   const [backtestResult, setBacktestResult]     = useState(null);
   const [isBacktesting, setIsBacktesting]       = useState(false);
+  const [markPrice, setMarkPrice]               = useState(null);
+  const [markPriceUpdatedAt, setMarkPriceUpdatedAt] = useState(null);
+  const [dataStale, setDataStale]               = useState(false);
   const wsRef = useRef(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -91,6 +94,10 @@ export default function Dashboard() {
         setIsBotRunning(d.is_running);
         setLiveStatus(d.live_status);
         if (d.logs) setLogs(d.logs);
+        // Always-fresh mark price from backend
+        if (d.mark_price != null) setMarkPrice(d.mark_price);
+        if (d.mark_price_updated_at != null) setMarkPriceUpdatedAt(d.mark_price_updated_at);
+        if (d.data_stale != null) setDataStale(d.data_stale);
       } catch (err) { console.error('WS parse error', err); }
     };
   };
@@ -251,7 +258,7 @@ export default function Dashboard() {
 
         {activeTab === 'terminal' ? (
           <>
-            <TelemetryCard liveStatus={liveStatus} symbol={symbol} isBotRunning={isBotRunning} onStart={handleStartBot} onStop={handleStopBot} onClear={handleClearInstance} onCloseTrade={handleCloseTrade} onReset={handleResetBot} />
+            <TelemetryCard liveStatus={liveStatus} symbol={symbol} isBotRunning={isBotRunning} onStart={handleStartBot} onStop={handleStopBot} onClear={handleClearInstance} onCloseTrade={handleCloseTrade} onReset={handleResetBot} markPrice={markPrice} markPriceUpdatedAt={markPriceUpdatedAt} dataStale={dataStale} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <LogsPanel logs={logs} />

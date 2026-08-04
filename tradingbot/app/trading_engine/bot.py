@@ -433,10 +433,39 @@ class BotState:
 # LOGGING
 # --------------------------------------------------------------------------
 
+class DatabaseLogHandler(logging.Handler):
+    """Custom logging handler to record bot logs into the database."""
+    def __init__(self, symbol: str = None):
+        super().__init__()
+        self.symbol = symbol
+
+    def emit(self, record):
+        try:
+            from app.services.database_service import db_service
+            msg = record.getMessage()
+            symbol = getattr(record, 'symbol', None) or self.symbol
+            db_service.log_event(
+                level=record.levelname,
+                message=msg,
+                symbol=symbol
+            )
+        except Exception:
+            pass
+
+
 def setup_logger(cfg: Config) -> logging.Logger:
     logger = logging.getLogger("ha_alma_bot")
+    symbol = getattr(cfg, "symbol", None) or os.environ.get("BOT_SYMBOL", "BTCUSDT")
+
     if logger.handlers:
-        return logger  # already configured - avoid adding duplicate handlers
+        # Check if database handler is already attached
+        has_db_handler = any(isinstance(h, DatabaseLogHandler) for h in logger.handlers)
+        if not has_db_handler:
+            dbh = DatabaseLogHandler(symbol=symbol)
+            dbh.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
+            logger.addHandler(dbh)
+        return logger
+
     logger.setLevel(logging.INFO)
     fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
 
@@ -447,6 +476,11 @@ def setup_logger(cfg: Config) -> logging.Logger:
     ch = logging.StreamHandler()
     ch.setFormatter(fmt)
     logger.addHandler(ch)
+
+    dbh = DatabaseLogHandler(symbol=symbol)
+    dbh.setFormatter(fmt)
+    logger.addHandler(dbh)
+
     return logger
 
 
@@ -1533,6 +1567,15 @@ class TradingBot:
         last_row = df_ind.iloc[-1]
         last_candle_time = int(df["open_time"].iloc[-1])
 
+        # Compute signal for current candle
+        sig = compute_signal(df_ind)
+        self.log.info(
+            f"📊 [Tick] {self.cfg.symbol} ({self.cfg.interval}) | Status: {self.state.status} | "
+            f"HA Close: {last_row.get('ha_close', 0):.2f} | ALMA: {last_row.get('alma', 0):.2f} | "
+            f"RSI: {last_row.get('rsi', 0):.1f} (SMA: {last_row.get('rsi_sma', 0):.1f}) | "
+            f"ATR: {last_row.get('atr', 0):.2f} | Signal: {sig or 'NONE'}"
+        )
+
         if self.state.status in ("ENTRIES_PLACED", "IN_POSITION"):
             self._check_opposite_signal(df_ind)
 
@@ -1552,7 +1595,9 @@ class TradingBot:
         try:
             try:
                 mark_price = self.ex.get_current_price()
-            except Exception:
+                self.log.debug(f"[Telemetry] Fetched mark price: {mark_price}")
+            except Exception as mp_err:
+                self.log.warning(f"[Telemetry] Failed to fetch mark price: {mp_err}")
                 mark_price = None
             try:
                 balance = self.ex.get_available_balance()
@@ -1637,8 +1682,9 @@ class TradingBot:
 
             from app.services.database_service import db_service
             db_service.save_bot_telemetry(self.cfg.symbol, snapshot)
+            self.log.debug(f"[Telemetry] Saved telemetry snapshot (mark_price={mark_price}, ts={snapshot['timestamp']:.0f})")
         except Exception as e:
-            self.log.warning(f"Could not write live status snapshot: {e}")
+            self.log.warning(f"[Telemetry] Could not write live status snapshot: {e}")
 
 
     # ---------------------------------------------------------------

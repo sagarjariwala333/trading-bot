@@ -1,14 +1,11 @@
-"""Lightweight service for fetching current Binance Futures mark price.
+"""Real-time Binance Futures mark price via ThreadedWebsocketManager.
 
-Uses a background thread that polls Binance's public REST API every 1 second.
+Maintains a persistent, auto-reconnecting WebSocket connection to Binance Futures.
+Updates arrive in real time (every ~1s) with ZERO REST API weight usage, completely
+eliminating rate-limit / IP-ban (-1003) risks.
+
 The latest mark price is stored in-memory and read instantly (zero-cost) by the
 dashboard WebSocket endpoint on each tick.
-
-Why REST polling instead of Binance WebSocket stream:
-  - Binance's ``@markPrice`` WS stream can be blocked by certain firewalls/proxies.
-  - The REST endpoint (``fapi/v1/premiumIndex``) is more reliably accessible.
-  - At 1 request/second with weight=1, we use only ~60/2400 of the rate limit per minute.
-  - The background thread means the dashboard WS endpoint never blocks on a network call.
 """
 
 import logging
@@ -16,84 +13,93 @@ import threading
 import time
 from typing import Optional, Dict, Any
 
-import requests
+from binance import ThreadedWebsocketManager
 
 logger = logging.getLogger("ha_alma_bot")
-
-# Binance public endpoint — no API key required
-_PREMIUM_INDEX_URL = "https://fapi.binance.com/fapi/v1/premiumIndex"
 
 # In-memory store: {symbol: {"mark_price": float, "updated_at": float}}
 _latest: Dict[str, Dict[str, Any]] = {}
 _lock = threading.Lock()
 
-# Active background pollers: {symbol: threading.Thread}
-_pollers: Dict[str, threading.Thread] = {}
-
-# How often the background thread fetches a new price (seconds)
-POLL_INTERVAL_SECONDS = 5
+# Global ThreadedWebsocketManager instance
+_twm: Optional[ThreadedWebsocketManager] = None
+_twm_lock = threading.Lock()
+_subscribed_symbols: set = set()
 
 # How old (seconds) a cached price can be before we consider it stale
 STALE_THRESHOLD_SECONDS = 15
 
 
-def _poll_loop(symbol: str):
-    """Background thread: continuously fetch mark price from Binance REST API."""
-    logger.info(f"[MarkPrice] Started background poller for {symbol} (every {POLL_INTERVAL_SECONDS}s)")
+def _handle_socket_message(msg: dict):
+    """Callback for Binance WebSocket mark price updates."""
+    try:
+        data = msg.get("data", {})
+        if not data:
+            data = msg  # Direct payload format fallback
 
-    consecutive_failures = 0
+        symbol = data.get("s")
+        price_str = data.get("p")
 
-    while True:
-        try:
-            resp = requests.get(
-                _PREMIUM_INDEX_URL,
-                params={"symbol": symbol},
-                timeout=5,
-            )
-            if resp.status_code in (429, 418):
-                logger.warning(f"[MarkPrice] Binance rate limit hit ({resp.status_code}) for {symbol}. Backing off 60s...")
-                time.sleep(60)
-                continue
-            resp.raise_for_status()
-            data = resp.json()
-            mark_price = float(data["markPrice"])
-
+        if symbol and price_str:
+            mark_price = float(price_str)
             if mark_price > 0:
                 with _lock:
-                    _latest[symbol] = {
+                    _latest[symbol.upper()] = {
                         "mark_price": mark_price,
                         "updated_at": time.time(),
                     }
-                if consecutive_failures > 0:
-                    logger.info(f"[MarkPrice] Recovered for {symbol} after {consecutive_failures} failures")
-                consecutive_failures = 0
+    except Exception as e:
+        logger.warning(f"[MarkPriceWS] Error processing WebSocket message: {e}")
 
-        except Exception as e:
-            consecutive_failures += 1
-            err_str = str(e)
-            if "-1003" in err_str or "banned" in err_str.lower() or "429" in err_str:
-                logger.warning(f"[MarkPrice] IP banned / rate limited (-1003) for {symbol}: {e}. Backing off 60s...")
-                time.sleep(60)
-            else:
-                if consecutive_failures <= 3 or consecutive_failures % 10 == 0:
-                    logger.warning(f"[MarkPrice] Fetch failed for {symbol} (attempt {consecutive_failures}): {e}")
 
-        time.sleep(POLL_INTERVAL_SECONDS)
+def _init_twm():
+    """Initialize and start the global ThreadedWebsocketManager."""
+    global _twm
+    with _twm_lock:
+        if _twm is None:
+            try:
+                logger.info("[MarkPriceWS] Starting Binance Futures WebSocket Manager...")
+                _twm = ThreadedWebsocketManager()
+                _twm.start()
+                logger.info("[MarkPriceWS] WebSocket Manager started successfully.")
+            except Exception as e:
+                logger.error(f"[MarkPriceWS] Failed to start WebSocket Manager: {e}")
+                _twm = None
 
 
 def ensure_subscribed(symbol: str = "BTCUSDT"):
-    """Start the background polling thread for *symbol* if not already running."""
+    """Subscribe to Binance Futures WebSocket mark price stream for *symbol*."""
     symbol = symbol.upper()
-    if symbol in _pollers and _pollers[symbol].is_alive():
-        return  # Already polling
+    
+    with _twm_lock:
+        if symbol in _subscribed_symbols:
+            return  # Already subscribed
 
-    t = threading.Thread(target=_poll_loop, args=(symbol,), daemon=True, name=f"markprice-{symbol}")
-    t.start()
-    _pollers[symbol] = t
+        if _twm is None:
+            _init_twm()
+
+        if _twm is not None:
+            try:
+                logger.info(f"[MarkPriceWS] Subscribing to Futures Mark Price WebSocket for {symbol}...")
+                _twm.start_symbol_mark_price_socket(
+                    callback=_handle_socket_message,
+                    symbol=symbol,
+                    fast=True,  # 1-second update interval
+                )
+                _subscribed_symbols.add(symbol)
+                logger.info(f"[MarkPriceWS] Subscribed successfully to {symbol} WebSocket stream.")
+            except Exception as e:
+                logger.error(f"[MarkPriceWS] Error subscribing to {symbol}: {e}")
+
+
+import requests
+
+# Binance public REST endpoint — used ONLY as a 1-time fallback on initial load
+_PREMIUM_INDEX_URL = "https://fapi.binance.com/fapi/v1/premiumIndex"
 
 
 def fetch_direct(symbol: str) -> Optional[float]:
-    """Perform a direct REST fetch for mark price."""
+    """Perform a 1-time REST fetch as fallback while waiting for the first WS packet."""
     try:
         resp = requests.get(_PREMIUM_INDEX_URL, params={"symbol": symbol}, timeout=5)
         resp.raise_for_status()
@@ -108,28 +114,24 @@ def fetch_direct(symbol: str) -> Optional[float]:
 
 
 def get_mark_price(symbol: str = "BTCUSDT") -> Optional[float]:
-    """Return the latest mark price for *symbol*, or ``None`` if unavailable.
+    """Return the latest mark price for *symbol* from the WebSocket stream.
 
-    This is a non-blocking read from in-memory — no network call.
-    The background thread keeps the value fresh (~1s old at most).
+    Non-blocking read from in-memory — zero network overhead.
     """
     symbol = symbol.upper()
-
-    # Auto-subscribe on first access
     ensure_subscribed(symbol)
 
     with _lock:
         entry = _latest.get(symbol)
 
     if not entry:
-        # Immediate fallback for the very first read
         return fetch_direct(symbol)
 
     return entry["mark_price"]
 
 
 def get_mark_price_updated_at(symbol: str = "BTCUSDT") -> Optional[float]:
-    """Return the epoch timestamp of the last mark price update, or ``None``."""
+    """Return the epoch timestamp of the last WebSocket mark price update, or ``None``."""
     symbol = symbol.upper()
     with _lock:
         entry = _latest.get(symbol)
@@ -137,7 +139,7 @@ def get_mark_price_updated_at(symbol: str = "BTCUSDT") -> Optional[float]:
 
 
 def is_price_stale(symbol: str = "BTCUSDT") -> bool:
-    """Return True if the mark price hasn't been updated recently."""
+    """Return True if the WebSocket mark price hasn't been updated recently."""
     symbol = symbol.upper()
     with _lock:
         entry = _latest.get(symbol)

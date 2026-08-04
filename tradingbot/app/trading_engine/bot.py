@@ -1543,8 +1543,13 @@ class TradingBot:
             try:
                 self.tick()
             except Exception as e:
-                self.log.exception(f"Unhandled error in tick(): {e}")
-                self.notify.send(f"⚠️ Bot error on {self.cfg.symbol}: {e}\nBot will keep retrying.")
+                err_str = str(e)
+                if "-1003" in err_str or "banned" in err_str.lower() or "429" in err_str:
+                    self.log.warning(f"⚠️ Binance rate limit / IP ban (-1003) detected: {e}. Backing off for 60 seconds...")
+                    time.sleep(60)
+                else:
+                    self.log.exception(f"Unhandled error in tick(): {e}")
+                    self.notify.send(f"⚠️ Bot error on {self.cfg.symbol}: {e}\nBot will keep retrying.")
             time.sleep(self.cfg.poll_seconds)
 
     # ---------------------------------------------------------------

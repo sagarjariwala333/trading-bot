@@ -31,10 +31,10 @@ _lock = threading.Lock()
 _pollers: Dict[str, threading.Thread] = {}
 
 # How often the background thread fetches a new price (seconds)
-POLL_INTERVAL_SECONDS = 1
+POLL_INTERVAL_SECONDS = 5
 
 # How old (seconds) a cached price can be before we consider it stale
-STALE_THRESHOLD_SECONDS = 10
+STALE_THRESHOLD_SECONDS = 15
 
 
 def _poll_loop(symbol: str):
@@ -50,6 +50,10 @@ def _poll_loop(symbol: str):
                 params={"symbol": symbol},
                 timeout=5,
             )
+            if resp.status_code in (429, 418):
+                logger.warning(f"[MarkPrice] Binance rate limit hit ({resp.status_code}) for {symbol}. Backing off 60s...")
+                time.sleep(60)
+                continue
             resp.raise_for_status()
             data = resp.json()
             mark_price = float(data["markPrice"])
@@ -66,9 +70,13 @@ def _poll_loop(symbol: str):
 
         except Exception as e:
             consecutive_failures += 1
-            # Only log every 10th failure to avoid log spam
-            if consecutive_failures <= 3 or consecutive_failures % 10 == 0:
-                logger.warning(f"[MarkPrice] Fetch failed for {symbol} (attempt {consecutive_failures}): {e}")
+            err_str = str(e)
+            if "-1003" in err_str or "banned" in err_str.lower() or "429" in err_str:
+                logger.warning(f"[MarkPrice] IP banned / rate limited (-1003) for {symbol}: {e}. Backing off 60s...")
+                time.sleep(60)
+            else:
+                if consecutive_failures <= 3 or consecutive_failures % 10 == 0:
+                    logger.warning(f"[MarkPrice] Fetch failed for {symbol} (attempt {consecutive_failures}): {e}")
 
         time.sleep(POLL_INTERVAL_SECONDS)
 

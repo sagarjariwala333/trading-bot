@@ -156,16 +156,17 @@ def save_db_state(symbol: str, state_data: Dict[str, Any]) -> None:
                 WHERE symbol = :symbol
             """), {"symbol": symbol_clean, "state": serialized, "status": status_val})
         else:
-            # Ensure foreign key requirement in PostgreSQL is met
+            # Ensure foreign key requirement in PostgreSQL is met without triggering transaction aborts
             if not is_sqlite:
-                try:
+                has_pair = conn.execute(
+                    text("SELECT 1 FROM trading_pairs WHERE symbol = :symbol"),
+                    {"symbol": symbol_clean}
+                ).fetchone()
+                if not has_pair:
                     conn.execute(text("""
                         INSERT INTO trading_pairs (symbol, base_asset, quote_asset, is_active, created_at, updated_at)
                         VALUES (:symbol, :base, 'USDT', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT (symbol) DO NOTHING
                     """), {"symbol": symbol_clean, "base": symbol_clean.replace("USDT", "")})
-                except Exception:
-                    pass
 
             conn.execute(text("""
                 INSERT INTO bot_states (symbol, status, is_running, state_data, created_at, updated_at)

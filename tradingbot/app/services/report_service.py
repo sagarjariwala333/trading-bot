@@ -1,13 +1,15 @@
 """Service for compiling trade reports and system diagnostics."""
 
 import io
+import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, desc
 
+from app.core.config import settings
 from app.models.trading import TradeExecution, PerformanceMetrics, SystemLog, BotState, TradingPair
 
 logger = logging.getLogger("ha_alma_bot")
@@ -16,8 +18,79 @@ class ReportService:
     """Service to gather trading metrics and build downloadable reports (Excel & PDF)."""
 
     @staticmethod
+    def sync_binance_trades(db: Session, symbol: str = "ALL"):
+        """Sync recent trade executions directly from Binance Futures API into PostgreSQL."""
+        if not settings.BINANCE_API_KEY or not settings.BINANCE_API_SECRET:
+            return
+
+        try:
+            from binance.client import Client
+            client = Client(settings.BINANCE_API_KEY, settings.BINANCE_API_SECRET, testnet=True)
+            try:
+                server_time = client.futures_time()['serverTime']
+                client.timestamp_offset = server_time - int(time.time() * 1000)
+            except Exception as time_err:
+                logger.warning(f"Could not adjust Binance timestamp offset: {time_err}")
+
+            symbols_to_sync = []
+            if symbol != "ALL":
+                symbols_to_sync = [symbol]
+            else:
+                pairs = db.query(TradingPair).all()
+                symbols_to_sync = [p.symbol for p in pairs] if pairs else ["BTCUSDT", "ETHUSDT"]
+                if "BTCUSDT" not in symbols_to_sync:
+                    symbols_to_sync.append("BTCUSDT")
+
+            for sym in symbols_to_sync:
+                try:
+                    raw_trades = client.futures_account_trades(symbol=sym, recvWindow=60000)
+                    count_added = 0
+                    for t in raw_trades:
+                        trade_id = str(t['id'])
+                        order_id = str(t['orderId'])
+                        unique_exec_id = f"{order_id}_{trade_id}"
+
+                        existing = db.query(TradeExecution).filter(
+                            TradeExecution.order_id == unique_exec_id
+                        ).first()
+
+                        if not existing:
+                            fill_dt = datetime.fromtimestamp(t['time'] / 1000, tz=timezone.utc).replace(tzinfo=None)
+                            pnl = Decimal(str(t['realizedPnl']))
+                            side = t['side']
+                            sig = 'TAKE_PROFIT' if pnl > 0 else ('STOP_LOSS' if pnl < 0 else 'ENTRY')
+
+                            exec_rec = TradeExecution(
+                                symbol=sym,
+                                order_id=unique_exec_id,
+                                client_order_id=f"trade_{trade_id}",
+                                order_type='LIMIT' if t.get('maker') else 'MARKET',
+                                side=side,
+                                quantity=Decimal(str(t['qty'])),
+                                price=Decimal(str(t['price'])),
+                                order_time=fill_dt,
+                                fill_time=fill_dt,
+                                commission=Decimal(str(t['commission'])),
+                                commission_asset=t.get('commissionAsset', 'USDT'),
+                                realized_pnl=pnl,
+                                strategy_signal=sig
+                            )
+                            db.add(exec_rec)
+                            count_added += 1
+                    if count_added > 0:
+                        db.commit()
+                        logger.info(f"Synced {count_added} new trade executions for {sym} from Binance.")
+                except Exception as sym_err:
+                    logger.warning(f"Failed to sync Binance trades for {sym}: {sym_err}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Binance trade sync: {e}")
+
+    @staticmethod
     def get_report_summary_data(db: Session, symbol: str, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Compile a summary dictionary of all KPIs for a symbol and date range."""
+        # Auto-sync trades from Binance prior to building summary
+        ReportService.sync_binance_trades(db, symbol)
+
         # 1. Base Filters
         exec_filter = [
             TradeExecution.fill_time >= start_date,

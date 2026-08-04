@@ -1,6 +1,7 @@
 import asyncio
 import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from starlette.websockets import WebSocketState
 from app.services.bot_manager import BotManager
 import logging
 from app.services.binance_ws_service import BinanceWebSocketService
@@ -24,19 +25,17 @@ async def websocket_live_status(
     await websocket.accept()
     logger.info(f"WebSocket client connected to stream status for {symbol}")
     
-    # Track the last logs we sent to avoid duplicate spam over WS if logs haven't changed
-    last_logs_hash = None
-    
     try:
         while True:
+            if websocket.client_state != WebSocketState.CONNECTED:
+                break
+
             # Gather bot status and DB logs
             status_data = BotManager.get_bot_status(symbol, log_lines=30)
             from app.services.database_service import db_service
             db_logs = db_service.get_recent_logs(symbol=symbol, limit=50)
 
-            # ── Always-fresh mark price from Binance WebSocket stream ────
-            #    get_mark_price() is a non-blocking in-memory read;
-            #    the background thread keeps the value updated every ~1s.
+            # ── Always-fresh mark price ─────────────────────────────────
             live_mark_price = get_mark_price(symbol)
             mark_price_updated_at = get_mark_price_updated_at(symbol)
 
@@ -56,26 +55,24 @@ async def websocket_live_status(
                 "live_status": status_data.live_status,
                 "logs": status_data.logs,
                 "structured_logs": db_logs,
-                # ── New fields for live mark price ───────────────────────
                 "mark_price": live_mark_price,
                 "mark_price_updated_at": mark_price_updated_at,
                 "data_stale": data_stale,
             }
             
-            await websocket.send_json(payload)
+            if websocket.client_state == WebSocketState.CONNECTED:
+                await websocket.send_json(payload)
             await asyncio.sleep(interval_seconds)
             
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket client disconnected for {symbol}")
-    except RuntimeError as e:
-        if "closed" in str(e).lower() or "handler is closed" in str(e).lower():
-            logger.info(f"WebSocket client disconnected (closed transport) for {symbol}")
-        else:
-            logger.error(f"RuntimeError in live status websocket for {symbol}: {e}")
+    except (WebSocketDisconnect, asyncio.CancelledError):
+        logger.info(f"WebSocket client disconnected/cancelled for {symbol}")
+    except (RuntimeError, ConnectionResetError, OSError) as e:
+        logger.info(f"WebSocket closed transport for {symbol}: {e}")
     except Exception as e:
         logger.error(f"Error in live status websocket for {symbol}: {e}")
         try:
-            await websocket.close()
+            if websocket.client_state == WebSocketState.CONNECTED:
+                await websocket.close()
         except Exception:
             pass
 
@@ -89,13 +86,18 @@ async def websocket_kline_live(
     await websocket.accept()
     try:
         async for kline in BinanceWebSocketService.stream_klines(symbol, interval):
+            if websocket.client_state != WebSocketState.CONNECTED:
+                break
             await websocket.send_json(kline)
             await asyncio.sleep(interval_seconds)
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket client disconnected for kline {symbol}")
+    except (WebSocketDisconnect, asyncio.CancelledError):
+        logger.info(f"WebSocket client disconnected/cancelled for kline {symbol}")
+    except (RuntimeError, ConnectionResetError, OSError) as e:
+        logger.info(f"WebSocket closed transport for kline {symbol}: {e}")
     except Exception as e:
         logger.error(f"Error in kline websocket for {symbol}: {e}")
         try:
-            await websocket.close()
+            if websocket.client_state == WebSocketState.CONNECTED:
+                await websocket.close()
         except Exception:
             pass

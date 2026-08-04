@@ -144,32 +144,22 @@ def save_db_state(symbol: str, state_data: Dict[str, Any]) -> None:
     status_val = state_data.get("status", "IDLE") if isinstance(state_data, dict) else "IDLE"
     
     with engine.begin() as conn:
-        # Try UPDATE with status column if table has it
-        try:
-            res = conn.execute(text("""
+        existing = conn.execute(
+            text("SELECT 1 FROM bot_states WHERE symbol = :symbol"),
+            {"symbol": symbol_clean}
+        ).fetchone()
+
+        if existing:
+            conn.execute(text("""
                 UPDATE bot_states 
                 SET state_data = :state, status = :status, updated_at = CURRENT_TIMESTAMP 
                 WHERE symbol = :symbol
             """), {"symbol": symbol_clean, "state": serialized, "status": status_val})
-        except Exception:
-            res = conn.execute(text("""
-                UPDATE bot_states 
-                SET state_data = :state, updated_at = CURRENT_TIMESTAMP 
-                WHERE symbol = :symbol
-            """), {"symbol": symbol_clean, "state": serialized})
-
-        if res.rowcount == 0:
-            # Try INSERT with status & is_running columns for Postgres schema compatibility
-            try:
-                conn.execute(text("""
-                    INSERT INTO bot_states (symbol, status, is_running, state_data, updated_at)
-                    VALUES (:symbol, :status, TRUE, :state, CURRENT_TIMESTAMP)
-                """), {"symbol": symbol_clean, "status": status_val, "state": serialized})
-            except Exception:
-                conn.execute(text("""
-                    INSERT INTO bot_states (symbol, state_data, updated_at)
-                    VALUES (:symbol, :state, CURRENT_TIMESTAMP)
-                """), {"symbol": symbol_clean, "state": serialized})
+        else:
+            conn.execute(text("""
+                INSERT INTO bot_states (symbol, status, is_running, state_data, created_at, updated_at)
+                VALUES (:symbol, :status, TRUE, :state, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """), {"symbol": symbol_clean, "status": status_val, "state": serialized})
 
 def get_active_bots() -> list:
     """Get list of symbols that should be actively running."""

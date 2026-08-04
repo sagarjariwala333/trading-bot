@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from typing import List
+from typing import List, Optional
 from app.schemas.indicators import LatestSignalResponseSchema, IndicatorRowSchema, IndicatorCalculateRequestSchema
 from app.services.indicator_service import IndicatorService
 from app.services.bot_manager import BotManager
@@ -10,15 +10,16 @@ router = APIRouter()
 @router.get("/latest", response_model=LatestSignalResponseSchema)
 def get_latest_signal(
     symbol: str = Query("BTCUSDT", description="Symbol to evaluate signal for"),
-    interval: str = Query("12h", description="Candle interval")
+    interval: Optional[str] = Query(None, description="Candle interval")
 ):
     try:
-        # Load custom periods from symbol configuration if they exist
+        # Load custom periods and interval from symbol configuration if they exist
         cfg = BotManager.get_config(symbol)
+        active_interval = interval or cfg.get("interval", "12h")
         
         return IndicatorService.evaluate_latest_signal(
             symbol=symbol,
-            interval=interval,
+            interval=active_interval,
             alma_window=cfg.get("alma_window", 9),
             rsi_period=cfg.get("rsi_period", 14),
             rsi_sma_period=cfg.get("rsi_sma_period", 14),
@@ -34,7 +35,8 @@ def get_latest_signal(
 def calculate_indicators(payload: IndicatorCalculateRequestSchema):
     try:
         cfg = BotManager.get_config(payload.symbol)
-        df = IndicatorService.fetch_live_klines(payload.symbol, payload.interval, payload.klines_lookback)
+        active_interval = payload.interval or cfg.get("interval", "12h")
+        df = IndicatorService.fetch_live_klines(payload.symbol, active_interval, payload.klines_lookback)
         df_ind = IndicatorService.calculate_indicators(
             df,
             alma_window=cfg.get("alma_window", 9),

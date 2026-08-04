@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from app.schemas.market import MarketDownloadRequestSchema, DownloadResponseSchema, RawKlineSchema
 from app.services.market_data_service import MarketDataService
-from typing import List
+from app.services.bot_manager import BotManager
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -23,10 +24,13 @@ def download_historical_data(payload: MarketDownloadRequestSchema):
 @router.get("/klines", response_model=List[RawKlineSchema])
 def get_klines(
     symbol: str = Query("BTCUSDT", description="Symbol to fetch klines for"),
-    interval: str = Query("12h", description="Timeframe interval"),
+    interval: Optional[str] = Query(None, description="Timeframe interval"),
     limit: int = Query(100, ge=1, le=1500, description="Number of candles to fetch")
 ):
     try:
+        if not interval:
+            cfg = BotManager.get_config(symbol)
+            interval = cfg.get("interval", "12h")
         # Fetch directly from Binance API for visualization in the UI
         df = MarketDataService.fetch_klines_raw(symbol, interval, limit)
         return df

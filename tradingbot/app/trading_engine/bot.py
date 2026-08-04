@@ -331,6 +331,10 @@ def validate_config_field(key: str, value):
         s = str(value).strip()
         if not s:
             return None, f"{key}: cannot be empty"
+        if key == "interval":
+            valid_intervals = {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M"}
+            if s not in valid_intervals:
+                return None, f"interval: invalid timeframe '{s}'. Allowed timeframes: {', '.join(sorted(valid_intervals))}"
         return s, None
 
     if key in EDITABLE_FIELD_LIMITS:

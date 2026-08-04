@@ -22,7 +22,7 @@ class IndicatorRowSchema(BaseModel):
 
 class IndicatorCalculateRequestSchema(BaseModel):
     symbol: str = "BTCUSDT"
-    interval: str = "12h"
+    interval: Optional[str] = None
     klines_lookback: int = 300
 
 

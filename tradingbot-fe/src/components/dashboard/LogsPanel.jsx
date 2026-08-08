@@ -1,16 +1,26 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export default function LogsPanel({ logs }) {
   const containerRef = useRef(null);
+  const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {
-    if (containerRef.current) {
+    if (containerRef.current && autoScroll) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [logs]);
+  }, [logs, autoScroll]);
+
+  const toggleScroll = () => {
+    const next = !autoScroll;
+    setAutoScroll(next);
+    if (next && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  };
 
   return (
     <Card className="border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0d1220]/80 backdrop-blur-xl shadow-md dark:shadow-xl dark:shadow-black/30 flex flex-col">
@@ -19,6 +29,10 @@ export default function LogsPanel({ logs }) {
           Live Process Logs
         </CardTitle>
         <CardAction>
+          <Button variant="outline" size="sm" onClick={toggleScroll}
+            className="border-white/[0.08] bg-slate-800/70 text-slate-300 hover:bg-slate-700/70 hover:text-white">
+            {autoScroll ? '⏸ Stop Scroll' : '▶ Resume Scroll'}
+          </Button>
           <Badge variant="outline" className="text-slate-500 border-white/[0.06] bg-slate-900/60 text-[11px]">
             {logs.length} lines
           </Badge>

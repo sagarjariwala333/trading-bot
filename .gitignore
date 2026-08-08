@@ -7,16 +7,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-npm-cache
-dist
-dist-ssr
+# Dependencies
+node_modules/
+npm-cache/
+
+# Build output
+dist/
+dist-ssr/
+build/
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
@@ -24,25 +28,7 @@ dist-ssr
 *.sln
 *.sw?
 
-.env
-.env.example
-
-**/.env
-**/.env.*
-
-nul
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyc
-
 # Environment
-.env
-.env.*
-!.env.example
-
-# Environment files
 .env
 .env.*
 !.env.example
@@ -52,12 +38,30 @@ __pycache__/
 # Python
 __pycache__/
 **/__pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Test / tooling caches
+.pytest_cache/
+**/.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.eggs/
+*.egg-info/
+.hypothesis/
+
 # Runtime database (all persistence is database-backed)
 tradingbot/data/
+*.db
 *.db-shm
 *.db-wal
-*.db

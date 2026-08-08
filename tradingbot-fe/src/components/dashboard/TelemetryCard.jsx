@@ -87,7 +87,7 @@ export default function TelemetryCard({ liveStatus, symbol, isBotRunning, onStar
               size="sm"
               onClick={onClear}
               className="font-semibold text-sm px-3 py-1.5 h-auto rounded-md border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all duration-150"
-              title="Clear bot state, logs, and telemetry files"
+              title="Clear bot state, logs, and telemetry data"
             >
               🗑️ Clear State
             </Button>

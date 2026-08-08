@@ -3,6 +3,11 @@ from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Absolute path to the directory containing the `app` package (i.e. tradingbot/).
+# Used to resolve relative paths (DATA_DIR, sqlite URLs) consistently regardless of CWD,
+# so the API process and the bot subprocess always share the same database.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
@@ -48,6 +53,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Normalize DATA_DIR to an absolute path rooted at the project root, so the sqlite
+# database and any other derived paths resolve identically no matter what process CWD is.
+if not os.path.isabs(settings.DATA_DIR):
+    settings.DATA_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, settings.DATA_DIR))
 
 # Ensure required directories exist
 os.makedirs(settings.DATA_DIR, exist_ok=True)

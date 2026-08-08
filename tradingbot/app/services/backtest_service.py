@@ -31,8 +31,7 @@ class BacktestService:
         global_config: Config
     ) -> BacktestResponseSchema:
         # Load dataset
-        filepath = MarketDataService.get_dataset_path(req.dataset_name)
-        df = MarketDataService.load_kline_dataframe(filepath)
+        df = MarketDataService.load_kline_dataframe(req.dataset_name)
 
         # Merge requested settings with base config defaults
         cfg = Config(

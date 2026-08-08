@@ -30,10 +30,8 @@ IMPORTANT: Test on Binance Futures Testnet before running with real funds.
 Requires: pip install -r requirements.txt (see that file for the exact package list)
 """
 
-import json
 import logging
 import os
-import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -87,46 +85,17 @@ except ImportError:
     from indicators import build_indicator_frame  # type: ignore
 
 
-def atomic_write_json(path: str, data) -> None:
-    """
-    Writes JSON to `path` without ever leaving a half-written/corrupted file behind,
-    even if the process is killed, the power cuts, or the disk hiccups mid-write.
-
-    Standard safe pattern: write to a temp file in the SAME directory, flush + fsync it
-    to disk, then os.replace() it onto the real path. os.replace() is atomic on both
-    POSIX and Windows when source and destination are on the same filesystem (which
-    they always are here, since the temp file is created in that same directory) - so
-    any reader of `path` only ever sees either the complete old content or the complete
-    new content, never a partial write in between.
-    """
-    directory = os.path.dirname(os.path.abspath(path)) or "."
-    fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=".tmp_", suffix=".json")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_path, path)
-    except Exception:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
-        raise
-
 # --------------------------------------------------------------------------
 # CONFIG
 # --------------------------------------------------------------------------
 
-# Set BOT_INSTANCE_DIR to run multiple fully-isolated instances of this SAME codebase
-# at once (e.g. one for BTCUSDT, one for PAXGUSDT) - each gets its own config.json,
-# bot_state.json, live_status.json, and bot.log in its own directory, so there is zero
-# shared mutable state between instances. Example:
-#   BOT_INSTANCE_DIR=instances/btc python bot.py
-#   BOT_INSTANCE_DIR=instances/gold python bot.py
-# Defaults to the current directory, matching the original single-instance behavior.
-BOT_INSTANCE_DIR = os.environ.get("BOT_INSTANCE_DIR", ".")
-os.makedirs(BOT_INSTANCE_DIR, exist_ok=True)
+# The symbol this process instance belongs to. Set by the orchestrator (BotManager)
+# when launching the bot subprocess; defaults to BTCUSDT for standalone runs.
+# All config/state/status/log persistence is database-backed (app.core.db), so the
+# only runtime identity a process needs is this symbol - no per-instance files.
+def _resolve_symbol(default: str = "BTCUSDT") -> str:
+    env_symbol = os.environ.get("BOT_SYMBOL", "").strip().upper()
+    return env_symbol or (default or "BTCUSDT").strip().upper()
 
 
 @dataclass
@@ -157,25 +126,17 @@ class Config:
     adx_threshold: float = 25.0                # entries only allowed when ADX >= this (25 = "confirmed trend" convention)
     poll_seconds: int = 15
     klines_lookback: int = 300
-    config_path: str = os.path.join(BOT_INSTANCE_DIR, "config.json")
-    live_status_file: str = os.path.join(BOT_INSTANCE_DIR, "live_status.json")
-    state_file: str = os.path.join(BOT_INSTANCE_DIR, "bot_state.json")
-    log_file: str = os.path.join(BOT_INSTANCE_DIR, "bot.log")
 
     # ---- dashboard integration -------------------------------------------
     def get_symbol_from_env(self) -> str:
-        try:
-            return os.path.basename(os.path.abspath(BOT_INSTANCE_DIR)).upper()
-        except Exception:
-            return self.symbol
+        return _resolve_symbol(self.symbol)
 
     def to_editable_dict(self) -> dict:
         return {k: getattr(self, k) for k in EDITABLE_FIELDS}
 
     def save_editable(self):
-        """Write the current editable fields to config_path and DB."""
+        """Write the current editable fields to the database."""
         data = self.to_editable_dict()
-        atomic_write_json(self.config_path, data)
         try:
             from app.core.db import save_db_config
             save_db_config(self.get_symbol_from_env(), data)
@@ -184,7 +145,7 @@ class Config:
 
     def reload_editable(self, allow_symbol_interval_change: bool = True):
         """
-        Re-read config and apply any changes. Loads from DB primarily, falls back to config_path.
+        Re-read config from the database and apply any changes.
         """
         data = None
         try:
@@ -194,13 +155,7 @@ class Config:
             logging.getLogger("ha_alma_bot").error(f"Failed to read config from DB: {e}")
 
         if not data:
-            if not os.path.exists(self.config_path):
-                return
-            try:
-                with open(self.config_path) as f:
-                    data = json.load(f)
-            except (json.JSONDecodeError, OSError):
-                return  # dashboard mid-write or file briefly invalid - just skip this cycle
+            return
 
         for k in EDITABLE_FIELDS:
             if k in ("symbol", "interval") and not allow_symbol_interval_change:
@@ -216,10 +171,8 @@ class Config:
                 setattr(self, k, clean_value)
 
     @classmethod
-    def load(cls, config_path: str = None) -> "Config":
-        if config_path is None:
-            config_path = os.path.join(BOT_INSTANCE_DIR, "config.json")
-        cfg = cls(config_path=config_path)
+    def load(cls, symbol: str = None) -> "Config":
+        cfg = cls(symbol=symbol or _resolve_symbol())
         cfg.reload_editable(allow_symbol_interval_change=True)
         return cfg
 
@@ -233,7 +186,7 @@ EDITABLE_FIELDS = [
     "poll_seconds", "klines_lookback", "telegram_enabled",
 ]
 
-# Sensible bounds the dashboard's /api/config endpoint enforces before writing config.json.
+# Sensible bounds the dashboard's /api/config endpoint enforces before writing the config.
 # tp_custom_levels is a comma-separated string, validated separately (see parse_tp_custom_levels).
 EDITABLE_FIELD_LIMITS = {
     "leverage": (1, 125, int),
@@ -354,7 +307,7 @@ def validate_config_field(key: str, value):
 
 
 # --------------------------------------------------------------------------
-# STATE (persisted to disk so a restart never loses track of an open trade)
+# STATE (persisted to the database so a restart never loses track of an open trade)
 # --------------------------------------------------------------------------
 
 @dataclass
@@ -372,14 +325,9 @@ class BotState:
     realized_pnl: float = 0.0           # accumulated realized profit and loss
 
     def get_symbol_from_env(self) -> str:
-        try:
-            return os.path.basename(os.path.abspath(BOT_INSTANCE_DIR)).upper()
-        except Exception:
-            return "BTCUSDT"
+        return _resolve_symbol()
 
-    def save(self, path: str):
-        # Save to local file cache
-        atomic_write_json(path, asdict(self))
+    def save(self):
         # Save to DB
         try:
             from app.core.db import save_db_state
@@ -388,34 +336,15 @@ class BotState:
             logging.getLogger("ha_alma_bot").error(f"Failed to save state to DB: {e}")
 
     @classmethod
-    def load(cls, path: str) -> "BotState":
-        # Resolve symbol
-        symbol = "BTCUSDT"
-        try:
-            symbol = os.path.basename(os.path.abspath(BOT_INSTANCE_DIR)).upper()
-        except Exception:
-            pass
+    def load(cls) -> "BotState":
+        symbol = _resolve_symbol()
 
-        # Try DB first
         data = None
         try:
             from app.core.db import get_db_state
             data = get_db_state(symbol)
         except Exception as e:
             logging.getLogger("ha_alma_bot").error(f"Failed to read state from DB: {e}")
-
-        # Fallback to local bot_state.json file
-        if not data and os.path.exists(path):
-            try:
-                with open(path) as f:
-                    data = json.load(f)
-            except (json.JSONDecodeError, TypeError, OSError) as e:
-                logging.getLogger("ha_alma_bot").error(
-                    f"bot_state.json is corrupted or unreadable ({e}). "
-                    f"Starting from a blank state - startup reconciliation against "
-                    f"Binance will rebuild the real position/order state if one exists."
-                )
-                return cls()
 
         if data:
             try:
@@ -435,6 +364,38 @@ class BotState:
 # LOGGING
 # --------------------------------------------------------------------------
 
+class DBLogHandler(logging.Handler):
+    """
+    Logging handler that persists log lines to the database instead of a log file,
+    so the dashboard can tail them from any process without touching the filesystem.
+    Lines are batched in memory and flushed to the DB in a single insert.
+    """
+
+    def __init__(self, symbol: str, flush_every: int = 20):
+        super().__init__()
+        self.symbol = symbol
+        self._buffer = []
+        self._flush_every = max(1, flush_every)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self._buffer.append((record.created, record.levelname, self.format(record)))
+            if len(self._buffer) >= self._flush_every:
+                self.flush()
+        except Exception:
+            pass  # a logging failure must never break the trading loop
+
+    def flush(self) -> None:
+        if not self._buffer:
+            return
+        try:
+            from app.core.db import append_log_lines
+            append_log_lines(self.symbol, self._buffer)
+            self._buffer = []
+        except Exception:
+            pass
+
+
 def setup_logger(cfg: Config) -> logging.Logger:
     logger = logging.getLogger("ha_alma_bot")
     if logger.handlers:
@@ -442,9 +403,9 @@ def setup_logger(cfg: Config) -> logging.Logger:
     logger.setLevel(logging.INFO)
     fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
 
-    fh = logging.FileHandler(cfg.log_file)
-    fh.setFormatter(fmt)
-    logger.addHandler(fh)
+    dbh = DBLogHandler(cfg.get_symbol_from_env())
+    dbh.setFormatter(fmt)
+    logger.addHandler(dbh)
 
     ch = logging.StreamHandler()
     ch.setFormatter(fmt)
@@ -1147,10 +1108,10 @@ class TradingBot:
         self.log = setup_logger(cfg)
         self.ex = ExchangeGateway(cfg, self.log)
         self.notify = TelegramNotifier(cfg, self.log)
-        self.state = BotState.load(cfg.state_file)
+        self.state = BotState.load()
 
     def save_state(self):
-        self.state.save(self.cfg.state_file)
+        self.state.save()
 
     def validate_sl_price(self, direction: str, sl_price: float, mark_price: float) -> tuple:
         """
@@ -1392,7 +1353,7 @@ class TradingBot:
 
     # ---------------------------------------------------------------
     def _write_live_status(self, last_row=None):
-        """Snapshot everything the dashboard needs into a small JSON file. Best-effort -
+        """Snapshot everything the dashboard needs into the database. Best-effort -
         a failure here must never take down the trading loop itself."""
         try:
             try:
@@ -1480,7 +1441,8 @@ class TradingBot:
                 except Exception as ex:
                     self.log.debug(f"Open orders fallback scan in live status failed: {ex}")
 
-            atomic_write_json(self.cfg.live_status_file, snapshot)
+            from app.core.db import save_db_live_status
+            save_db_live_status(self.cfg.get_symbol_from_env(), snapshot)
         except Exception as e:
             self.log.warning(f"Could not write live status snapshot: {e}")
 
@@ -1943,11 +1905,11 @@ class TradingBot:
 
 # --------------------------------------------------------------------------
 if __name__ == "__main__":
-    cfg = Config.load()  # reads config.json (created with defaults on first run)
+    cfg = Config.load()  # reads config from the database (created with defaults on first run)
     if not cfg.api_key or not cfg.api_secret:
         raise SystemExit(
             "Set BINANCE_API_KEY and BINANCE_API_SECRET environment variables before running.\n"
-            "cfg.testnet is currently set to True — confirm this in config.json before going live."
+            "cfg.testnet is currently set to True — confirm this in the dashboard before going live."
         )
     bot = TradingBot(cfg)
     bot.run_forever()

@@ -101,7 +101,7 @@ export default function Dashboard() {
   };
 
   const handleClearInstance = async () => {
-    if (!window.confirm(`Are you sure you want to clear bot_state.json, live_status.json, bot.log, and reset database state for ${symbol}?`)) {
+    if (!window.confirm(`Are you sure you want to clear bot state, live status, logs, and reset database state for ${symbol}?`)) {
       return;
     }
     try {

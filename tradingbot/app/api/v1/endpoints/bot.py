@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from app.schemas.bot import BotStatusResponseSchema, BotControlResponseSchema, LogTailResponseSchema
 from app.services.bot_manager import BotManager
+from app.core.db import get_log_lines
 
 router = APIRouter()
 
@@ -46,8 +47,7 @@ def get_bot_logs(
     lines: int = Query(100, ge=1, le=2000)
 ):
     try:
-        paths = BotManager.get_paths(symbol)
-        logs = BotManager.tail_log_lines(paths["log"], n=lines)
+        logs = get_log_lines(symbol, n=lines)
         return LogTailResponseSchema(logs=logs, line_count=len(logs))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching bot logs: {e}")

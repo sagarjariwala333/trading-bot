@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+npm-cache
 dist
 dist-ssr
 *.local
@@ -54,3 +55,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Runtime database (all persistence is database-backed)
+tradingbot/data/
+*.db-shm
+*.db-wal
+*.db

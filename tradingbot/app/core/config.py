@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: str = ""
     DATABASE_URL: str = ""
 
+    # Telemetry & Observability (Langfuse)
+    LANGFUSE_PUBLIC_KEY: str = "pk-lf-baa532ae-f2e6-4abc-9acf-dee1f5d753bd"
+    LANGFUSE_SECRET_KEY: str = "sk-lf-23bc48ef-cd04-4128-885d-e0a873bbc00b"
+    LANGFUSE_HOST: str = "https://jp.cloud.langfuse.com"
+    LANGFUSE_ENABLED: bool = True
+
     # Bot settings
     DATA_DIR: str = "data"
 

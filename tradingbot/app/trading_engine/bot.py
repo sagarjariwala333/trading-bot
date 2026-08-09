@@ -84,6 +84,21 @@ except ImportError:
     # Fallback: bare import when bot.py is executed directly from its directory
     from indicators import build_indicator_frame  # type: ignore
 
+try:
+    from app.core.telemetry import (
+        init_telemetry, LangfuseLoggingHandler, trace_event, observe_trace
+    )
+    init_telemetry()
+    _root_logger = logging.getLogger()
+    _lf_handler = LangfuseLoggingHandler()
+    _root_logger.addHandler(_lf_handler)
+except Exception:
+    def observe_trace(*args, **kwargs):
+        def dec(f): return f
+        return dec
+    def trace_event(*args, **kwargs):
+        pass
+
 
 # --------------------------------------------------------------------------
 # CONFIG

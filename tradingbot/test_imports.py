@@ -7,6 +7,9 @@ try:
     print("Testing imports...")
     from app.core.config import settings
     print("[OK] app.core.config imported successfully")
+
+    from app.core.telemetry import init_telemetry, get_langfuse_client, trace_event
+    print("[OK] app.core.telemetry imported successfully")
     
     from app.schemas.config import TradingConfigSchema
     from app.schemas.bot import BotStatusResponseSchema

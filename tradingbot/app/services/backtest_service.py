@@ -12,6 +12,7 @@ from app.schemas.backtest import (
     EquityPointSchema,
     BacktestRequestSchema,
 )
+from app.core.telemetry import trace_event
 
 
 class BacktestService:
@@ -104,6 +105,14 @@ class BacktestService:
 
         # Monthly PnL formatted
         monthly_pnl_str = {str(k): float(v) for k, v in result["monthly_pnl"].items()}
+
+        trace_event(
+            name="BacktestService.run_strategy_backtest",
+            level="INFO",
+            input={"dataset": req.dataset_name, "starting_balance": req.starting_balance},
+            output={"final_balance": final_balance, "total_return_pct": total_return_pct, "total_trades": total_trades, "win_rate_pct": win_rate},
+            metadata={"wins": wins_count, "losses": losses_count, "close_reasons": close_reasons}
+        )
 
         return BacktestResponseSchema(
             dataset_name=req.dataset_name,

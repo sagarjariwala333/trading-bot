@@ -10,6 +10,7 @@ from app.core.db import (
     get_db_live_status, delete_db_live_status,
     set_bot_active_status, get_log_lines, clear_log_lines,
 )
+from app.core.telemetry import trace_event, observe_trace
 
 
 class BotManager:
@@ -77,6 +78,17 @@ class BotManager:
             env["TELEGRAM_BOT_TOKEN"] = settings.TELEGRAM_BOT_TOKEN
         if settings.TELEGRAM_CHAT_ID:
             env["TELEGRAM_CHAT_ID"] = settings.TELEGRAM_CHAT_ID
+
+        # Inject Langfuse telemetry settings to subprocess
+        if getattr(settings, "LANGFUSE_PUBLIC_KEY", ""):
+            env["LANGFUSE_PUBLIC_KEY"] = settings.LANGFUSE_PUBLIC_KEY
+        if getattr(settings, "LANGFUSE_SECRET_KEY", ""):
+            env["LANGFUSE_SECRET_KEY"] = settings.LANGFUSE_SECRET_KEY
+        if getattr(settings, "LANGFUSE_HOST", ""):
+            env["LANGFUSE_HOST"] = settings.LANGFUSE_HOST
+        env["LANGFUSE_ENABLED"] = str(getattr(settings, "LANGFUSE_ENABLED", True))
+
+        trace_event("BotManager.start_bot", level="INFO", metadata={"symbol": symbol_clean})
 
         # Launch app/trading_engine/bot.py as a subprocess
         bot_script_path = os.path.join(PROJECT_ROOT, "app", "trading_engine", "bot.py")

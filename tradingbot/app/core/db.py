@@ -26,6 +26,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from app.core.config import settings, PROJECT_ROOT
 
+try:
+    from app.core.telemetry import trace_event
+except Exception:
+    def trace_event(*args, **kwargs):
+        pass
+
 logger = logging.getLogger("ha_alma_bot")
 
 # Resolve database URL. Relative sqlite paths are anchored at the project root so the

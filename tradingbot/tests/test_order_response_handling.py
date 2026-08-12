@@ -77,3 +77,84 @@ def test_call_does_not_retry_non_retryable_binance_errors():
         gateway._call(fail)
 
     assert calls["count"] == 1
+
+
+def test_call_parses_ip_ban_timestamp_and_sleeps(monkeypatch):
+    gateway = ExchangeGateway.__new__(ExchangeGateway)
+    gateway.log = DummyLogger()
+    gateway.cfg = type("Cfg", (), {"symbol": "BTCUSDT"})()
+
+    slept = []
+    monkeypatch.setattr("time.sleep", lambda s: slept.append(s))
+
+    class RateLimitBanError(Exception):
+        code = -1003
+
+    future_ban_ms = int((1000000000.0 + 3600) * 1000)
+    monkeypatch.setattr("time.time", lambda: 1000000000.0)
+
+    attempts = {"count": 0}
+
+    def fn():
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise RateLimitBanError(f"APIError(code=-1003): Way too many requests; IP(1.2.3.4) banned until {future_ban_ms}.")
+        return {"status": "FILLED"}
+
+    res = gateway._call(fn, retries=2)
+    assert res == {"status": "FILLED"}
+    assert attempts["count"] == 2
+    assert len(slept) == 1
+    assert slept[0] >= 3601.5  # 3600s + 2s buffer
+
+
+def test_get_order_status_uses_call_retry(monkeypatch):
+    gateway = ExchangeGateway.__new__(ExchangeGateway)
+    gateway.log = DummyLogger()
+    gateway.cfg = type("Cfg", (), {"symbol": "BTCUSDT"})()
+
+    calls = []
+
+    def mock_call(fn, *args, **kwargs):
+        calls.append(fn)
+        return {"orderId": 123, "status": "NEW"}
+
+    gateway._call = mock_call
+    gateway.client = type("Client", (), {"futures_get_order": lambda self, symbol, orderId: None})()
+
+    res = gateway.get_order_status(123)
+    assert res == {"orderId": 123, "status": "NEW"}
+    assert len(calls) == 1
+
+
+def test_position_info_caching_deduplicates_calls(monkeypatch):
+    gateway = ExchangeGateway.__new__(ExchangeGateway)
+    gateway.log = DummyLogger()
+    gateway.cfg = type("Cfg", (), {"symbol": "BTCUSDT"})()
+    gateway._pos_info_cache = None
+    gateway._pos_info_time = 0.0
+
+    call_count = {"count": 0}
+
+    def mock_call(fn, *args, **kwargs):
+        call_count["count"] += 1
+        return [{"symbol": "BTCUSDT", "positionAmt": "1.5", "entryPrice": "50000.0"}]
+
+    gateway._call = mock_call
+    gateway.client = type("Client", (), {"futures_position_information": lambda self, symbol: None})()
+
+    # First query -> triggers API call
+    amt1 = gateway.get_position_amt()
+    price1 = gateway.get_position_entry_price()
+
+    assert amt1 == 1.5
+    assert price1 == 50000.0
+    assert call_count["count"] == 1  # Exactly 1 API call for both amt and entry price
+
+    # Invalidate cache
+    gateway.clear_cache()
+    amt2 = gateway.get_position_amt()
+    assert amt2 == 1.5
+    assert call_count["count"] == 2
+
+

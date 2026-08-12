@@ -32,6 +32,7 @@ Requires: pip install -r requirements.txt (see that file for the exact package l
 
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -506,7 +507,22 @@ class ExchangeGateway:
         self.log = logger
         self.client = Client(cfg.api_key, cfg.api_secret, testnet=cfg.testnet)
         self._symbol_info = None
+        self._pos_info_cache = None
+        self._pos_info_time = 0.0
+        self._mark_price_cache = None
+        self._mark_price_time = 0.0
+        self._balance_cache = None
+        self._balance_time = 0.0
         self.sync_clock()
+
+    def clear_cache(self):
+        """Clear per-tick short-lived caches for position info, mark price, and account balance."""
+        self._pos_info_cache = None
+        self._pos_info_time = 0.0
+        self._mark_price_cache = None
+        self._mark_price_time = 0.0
+        self._balance_cache = None
+        self._balance_time = 0.0
 
     # ---- retry wrapper -----------------------------------------------
     def _binance_error_code(self, exc) -> Optional[int]:
@@ -581,6 +597,23 @@ class ExchangeGateway:
                     continue
 
                 if code in RATE_LIMIT_BINANCE_CODES:
+                    # Check if Binance returned an explicit IP ban timestamp in error text
+                    # Example message: "APIError(code=-1003): Way too many requests; IP(...) banned until 1786400519148..."
+                    ban_match = re.search(r"banned until (\d+)", str(e))
+                    if ban_match:
+                        ban_until_ms = int(ban_match.group(1))
+                        ban_until_sec = ban_until_ms / 1000.0
+                        now_sec = time.time()
+                        remaining_sleep = max(0.0, ban_until_sec - now_sec) + 2.0  # +2s buffer
+                        if remaining_sleep > 0:
+                            ban_dt_str = datetime.fromtimestamp(ban_until_sec, timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                            self.log.warning(
+                                f"{fn.__name__} IP banned by Binance until {ban_dt_str} ({remaining_sleep:.1f}s remaining). "
+                                f"Sleeping until ban expires to avoid further rate limit penalties."
+                            )
+                            time.sleep(remaining_sleep)
+                            continue
+
                     backoff = delay * (2 ** attempt)
                     self.log.warning(f"{fn.__name__} rate-limited ({code}): {e}. "
                                       f"Backing off {backoff:.1f}s (longer than a normal retry).")
@@ -645,12 +678,12 @@ class ExchangeGateway:
     def setup_symbol(self):
         self.verify_one_way_mode()
         try:
-            self.client.futures_change_leverage(symbol=self.cfg.symbol, leverage=self.cfg.leverage)
+            self._call(self.client.futures_change_leverage, symbol=self.cfg.symbol, leverage=self.cfg.leverage)
         except Exception as e:
             if getattr(e, "code", None) not in (-4046, -4067):
                 self.log.info(f"Leverage unchanged: {e}")
         try:
-            self.client.futures_change_margin_type(symbol=self.cfg.symbol, marginType="ISOLATED")
+            self._call(self.client.futures_change_margin_type, symbol=self.cfg.symbol, marginType="ISOLATED")
         except Exception as e:
             if getattr(e, "code", None) not in (-4046, -4067):
                 self.log.info(f"Margin type unchanged: {e}")
@@ -692,11 +725,17 @@ class ExchangeGateway:
                 f"have NO open positions or orders on ANY symbol - then restart the bot."
             )
 
-    def get_available_balance(self) -> float:
+    def get_available_balance(self, force_fresh: bool = False) -> float:
+        now = time.time()
+        if not force_fresh and self._balance_cache is not None and (now - self._balance_time < 15.0):
+            return self._balance_cache
         balances = self._call(self.client.futures_account_balance)
         for b in balances:
             if b["asset"] == "USDT":
-                return float(b["availableBalance"])
+                val = float(b["availableBalance"])
+                self._balance_cache = val
+                self._balance_time = now
+                return val
         raise RuntimeError("USDT balance not found")
 
     def get_closed_klines(self) -> pd.DataFrame:
@@ -718,19 +757,34 @@ class ExchangeGateway:
         df = df.set_index(pd.to_datetime(df["open_time"], unit="ms"))
         return df
 
-    def get_current_price(self) -> float:
+    def get_current_price(self, force_fresh: bool = False) -> float:
+        now = time.time()
+        if not force_fresh and self._mark_price_cache is not None and (now - self._mark_price_time < 5.0):
+            return self._mark_price_cache
         t = self._call(self.client.futures_mark_price, symbol=self.cfg.symbol)
-        return float(t["markPrice"])
+        val = float(t["markPrice"])
+        self._mark_price_cache = val
+        self._mark_price_time = now
+        return val
 
-    def get_position_amt(self) -> float:
+    def get_position_information(self, force_fresh: bool = False) -> list:
+        now = time.time()
+        if not force_fresh and self._pos_info_cache is not None and (now - self._pos_info_time < 5.0):
+            return self._pos_info_cache
         positions = self._call(self.client.futures_position_information, symbol=self.cfg.symbol)
+        self._pos_info_cache = positions
+        self._pos_info_time = now
+        return positions
+
+    def get_position_amt(self, force_fresh: bool = False) -> float:
+        positions = self.get_position_information(force_fresh=force_fresh)
         for p in positions:
             if p["symbol"] == self.cfg.symbol:
                 return float(p["positionAmt"])
         return 0.0
 
-    def get_position_entry_price(self) -> float:
-        positions = self._call(self.client.futures_position_information, symbol=self.cfg.symbol)
+    def get_position_entry_price(self, force_fresh: bool = False) -> float:
+        positions = self.get_position_information(force_fresh=force_fresh)
         for p in positions:
             if p["symbol"] == self.cfg.symbol:
                 return float(p["entryPrice"])
@@ -744,7 +798,7 @@ class ExchangeGateway:
 
         # 1. Try standard order lookup
         try:
-            status = self.client.futures_get_order(symbol=self.cfg.symbol, orderId=order_id)
+            status = self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
             return status
         except Exception as e:
             error_code = self._binance_error_code(e)
@@ -799,6 +853,7 @@ class ExchangeGateway:
         """Cancel an order. Handle -2011 (already gone) gracefully without retry."""
         if not order_id:
             return
+        self.clear_cache()
 
         is_algo = order_id > 100000000000000
         label = "algo order" if is_algo else "order"
@@ -918,6 +973,7 @@ class ExchangeGateway:
             return True, None
 
     def place_entry_limit(self, side: str, price: float, qty: float) -> int:
+        self.clear_cache()
         order = self._call(
             self.client.futures_create_order,
             symbol=self.cfg.symbol, side=side, type=ORDER_TYPE_LIMIT,
@@ -933,6 +989,7 @@ class ExchangeGateway:
         return order_ref
 
     def place_stop_market(self, side: str, stop_price: float, qty: float) -> int:
+        self.clear_cache()
         order = self._call(
             self.client.futures_create_order,
             symbol=self.cfg.symbol, side=side, type=ORDER_TYPE_STOP_MARKET,
@@ -953,6 +1010,7 @@ class ExchangeGateway:
         return order_ref
 
     def place_tp_limit(self, side: str, price: float, qty: float) -> int:
+        self.clear_cache()
         order = self._call(
             self.client.futures_create_order,
             symbol=self.cfg.symbol, side=side, type=ORDER_TYPE_LIMIT,
@@ -965,6 +1023,7 @@ class ExchangeGateway:
         return order_ref
 
     def place_market_close(self, side: str, qty: float) -> int:
+        self.clear_cache()
         order = self._call(
             self.client.futures_create_order,
             symbol=self.cfg.symbol, side=side, type=ORDER_TYPE_MARKET,

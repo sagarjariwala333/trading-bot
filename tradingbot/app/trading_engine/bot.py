@@ -585,6 +585,8 @@ class ExchangeGateway:
                             self.log.debug("Order not found in standard orderbook, checking algo orders...")
                         else:
                             self.log.debug(f"Order {order_ref} not found in standard orderbook, checking algo orders...")
+                    elif code in (-4046, -4067):
+                        self.log.debug(f"{fn.__name__}: margin/leverage unchanged or restricted ({code}): {e}")
                     else:
                         self.log.error(f"{fn.__name__} failed with non-retryable error "
                                        f"({code}): {e}. Not retrying - this needs a human "

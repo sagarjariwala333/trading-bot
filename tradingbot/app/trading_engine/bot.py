@@ -488,6 +488,8 @@ NON_RETRYABLE_BINANCE_CODES = {
     -2011,  # unknown order / already gone
     -2013,  # order does not exist
     -2021,  # order would immediately trigger
+    -4046,  # no need to change margin type
+    -4067,  # margin type / leverage cannot be changed with open orders
 }
 # Timestamp outside recvWindow - almost always local clock drift. Worth a resync +
 # retry rather than either failing immediately or retrying blindly without fixing

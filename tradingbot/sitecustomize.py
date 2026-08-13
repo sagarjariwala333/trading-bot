@@ -1,13 +1,11 @@
 """
 Temporary Binance REST instrumentation for rate-limit investigation.
 
-Python automatically imports sitecustomize when this directory is on PYTHONPATH.
-BotManager already sets PYTHONPATH to the tradingbot project root for the bot
-subprocess, so this lets us measure actual Binance REST calls without changing
-trading-engine behavior.
+This module is loaded automatically by Python when the application root is on
+sys.path. It is also safe to import explicitly if a runtime does not auto-load
+sitecustomize.
 
-This file is intentionally diagnostic only: it does not throttle, retry, or
-change any Binance request.
+Diagnostic only: it does not throttle, retry, or change Binance requests.
 """
 
 import functools
@@ -18,6 +16,10 @@ import threading
 import time
 from collections import Counter, deque
 
+print(
+    f"[BINANCE_REST_MONITOR_BOOT] pid={os.getpid()} cwd={os.getcwd()}",
+    flush=True,
+)
 
 _LOG = logging.getLogger("binance_rest_monitor")
 _LOCK = threading.Lock()
@@ -29,7 +31,6 @@ _PATCHED = False
 
 
 def _caller_name():
-    """Return the first useful caller outside this monitor wrapper."""
     try:
         for frame in inspect.stack()[2:8]:
             module = frame.frame.f_globals.get("__name__", "")
@@ -46,7 +47,7 @@ def _prune(now):
         _CALL_TIMES.popleft()
 
 
-def _record(endpoint, success, elapsed_ms, caller, kwargs):
+def _record(endpoint, success, elapsed_ms, caller):
     global _TOTAL, _LAST_SUMMARY
     now = time.time()
     with _LOCK:
@@ -56,8 +57,6 @@ def _record(endpoint, success, elapsed_ms, caller, kwargs):
         _prune(now)
         rolling = len(_CALL_TIMES)
 
-        # Log every request only while traffic is already suspiciously high.
-        # This keeps normal logs manageable while making a runaway loop obvious.
         if rolling >= 100:
             _LOG.warning(
                 "[BINANCE_REST_HIGH_RATE] pid=%s endpoint=%s caller=%s "
@@ -65,7 +64,6 @@ def _record(endpoint, success, elapsed_ms, caller, kwargs):
                 os.getpid(), endpoint, caller, rolling, _TOTAL, success, elapsed_ms,
             )
 
-        # Emit a complete endpoint breakdown approximately once per minute.
         if now - _LAST_SUMMARY >= 60.0:
             _LAST_SUMMARY = now
             breakdown = ", ".join(
@@ -90,22 +88,28 @@ def _wrap_method(name, original):
             return result
         finally:
             elapsed_ms = (time.monotonic() - start) * 1000.0
-            _record(name, success, elapsed_ms, caller, kwargs)
+            _record(name, success, elapsed_ms, caller)
 
+    wrapped._rest_monitor_wrapped = True
     return wrapped
 
 
-def _patch_binance():
+def install_binance_rest_monitor():
+    """Patch python-binance Futures REST methods once and report installation."""
     global _PATCHED
     if _PATCHED:
-        return
+        return True
+
     try:
         from binance.client import Client
-    except Exception:
-        # The web/API process may start before dependencies are available in some
-        # environments. Never allow diagnostics to prevent the application starting.
-        return
+    except Exception as exc:
+        print(
+            f"[BINANCE_REST_MONITOR_ERROR] cannot import binance.client: {exc!r}",
+            flush=True,
+        )
+        return False
 
+    patched = 0
     for name in dir(Client):
         if not name.startswith("futures_"):
             continue
@@ -113,17 +117,21 @@ def _patch_binance():
             original = getattr(Client, name)
             if not callable(original) or getattr(original, "_rest_monitor_wrapped", False):
                 continue
-            wrapped = _wrap_method(name, original)
-            wrapped._rest_monitor_wrapped = True
-            setattr(Client, name, wrapped)
-        except Exception:
-            continue
+            setattr(Client, name, _wrap_method(name, original))
+            patched += 1
+        except Exception as exc:
+            print(
+                f"[BINANCE_REST_MONITOR_ERROR] failed to patch {name}: {exc!r}",
+                flush=True,
+            )
 
     _PATCHED = True
-    _LOG.warning(
-        "[BINANCE_REST_MONITOR] enabled pid=%s branch=debug/rate-limit-investigation",
-        os.getpid(),
+    print(
+        f"[BINANCE_REST_MONITOR_ENABLED] pid={os.getpid()} patched_methods={patched}",
+        flush=True,
     )
+    return True
 
 
-_patch_binance()
+# Normal Python sitecustomize path.
+install_binance_rest_monitor()

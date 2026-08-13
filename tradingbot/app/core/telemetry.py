@@ -169,25 +169,26 @@ def flush_telemetry():
 
 
 # --------------------------------------------------------------------------
-# TEMPORARY BINANCE REST RATE-LIMIT DIAGNOSTICS
+# BINANCE REST RATE-LIMIT DIAGNOSTICS
 # --------------------------------------------------------------------------
-# Uses the existing Langfuse integration rather than stdout/sitecustomize.
-# No Binance request is changed, throttled, retried, or suppressed.
-# The monitor aggregates locally and emits one Langfuse event per minute so
-# telemetry itself does not create one event for every Binance REST call.
+# Langfuse is the single instrumentation path. No sitecustomize.py or stdout
+# monitor is required. The Binance methods are patched when this module is
+# imported by the bot process.
+#
+# We intentionally aggregate locally and emit at most one summary event per
+# minute. This lets us identify the endpoint AND caller responsible for the
+# request volume without generating another high-volume telemetry stream.
 
 _binance_monitor_lock = threading.Lock()
-_binance_call_times = deque()
-_binance_counts = Counter()
+_binance_call_window = deque()  # (timestamp, endpoint, caller)
 _binance_total = 0
 _binance_last_summary = 0.0
-_binance_last_call = {}
 _binance_patched = False
 
 
 def _binance_caller():
     try:
-        for frame in inspect.stack()[3:10]:
+        for frame in inspect.stack()[3:12]:
             module = frame.frame.f_globals.get("__name__", "")
             if module not in (__name__, "binance.client"):
                 return f"{module}.{frame.function}"
@@ -196,63 +197,67 @@ def _binance_caller():
     return "unknown"
 
 
-def _emit_binance_summary(now: float, rolling_60s: int):
+def _prune_binance_window(now: float):
+    cutoff = now - 60.0
+    while _binance_call_window and _binance_call_window[0][0] < cutoff:
+        _binance_call_window.popleft()
+
+
+def _emit_binance_summary_locked(now: float):
+    """Build a snapshot while the lock is held; send to Langfuse after releasing it."""
     global _binance_last_summary
     if now - _binance_last_summary < 60.0:
-        return
+        return None
 
     _binance_last_summary = now
-    counts = dict(_binance_counts)
-    top = sorted(counts.items(), key=lambda item: item[1], reverse=True)
-    trace_event(
-        name="Binance REST Rate Summary",
-        metadata={
-            "pid": os.getpid(),
-            "rolling_60s_requests": rolling_60s,
-            "total_requests_since_start": _binance_total,
-            "endpoint_counts": dict(top),
-            "top_endpoint": top[0][0] if top else None,
-            "top_endpoint_count": top[0][1] if top else 0,
-        },
-        input={"source": "python-binance Client Futures REST methods"},
-    )
+    rows = list(_binance_call_window)
+    endpoint_counts = Counter(endpoint for _, endpoint, _ in rows)
+    caller_counts = Counter(caller for _, _, caller in rows)
+
+    endpoint_top = endpoint_counts.most_common()
+    caller_top = caller_counts.most_common()
+    return {
+        "pid": os.getpid(),
+        "rolling_60s_requests": len(rows),
+        "total_requests_since_start": _binance_total,
+        "endpoint_counts_60s": dict(endpoint_top),
+        "caller_counts_60s": dict(caller_top),
+        "top_endpoint": endpoint_top[0][0] if endpoint_top else None,
+        "top_endpoint_count": endpoint_top[0][1] if endpoint_top else 0,
+        "top_caller": caller_top[0][0] if caller_top else None,
+        "top_caller_count": caller_top[0][1] if caller_top else 0,
+    }
 
 
 def _record_binance_call(endpoint: str, success: bool, elapsed_ms: float, caller: str):
     global _binance_total
     now = time.time()
+    summary = None
+
     with _binance_monitor_lock:
-        _binance_call_times.append(now)
-        _binance_counts[endpoint] += 1
+        _binance_call_window.append((now, endpoint, caller))
         _binance_total += 1
-        previous = _binance_last_call.get(endpoint)
-        interval_ms = (now - previous) * 1000.0 if previous else None
-        _binance_last_call[endpoint] = now
+        _prune_binance_window(now)
+        rolling = len(_binance_call_window)
 
-        cutoff = now - 60.0
-        while _binance_call_times and _binance_call_times[0] < cutoff:
-            _binance_call_times.popleft()
-        rolling = len(_binance_call_times)
-
-        # Keep the high-rate event useful but bounded: one event per endpoint per
-        # minute when that endpoint alone reaches 100 calls/minute.
-        if rolling >= 100 and _binance_counts[endpoint] >= 100:
-            trace_event(
-                name="Binance REST High Rate",
-                level="WARNING",
-                metadata={
-                    "pid": os.getpid(),
-                    "endpoint": endpoint,
-                    "caller": caller,
-                    "rolling_60s_requests": rolling,
-                    "endpoint_calls_since_start": _binance_counts[endpoint],
-                    "interval_since_same_endpoint_ms": interval_ms,
-                    "success": success,
-                    "elapsed_ms": elapsed_ms,
-                },
+        # Emit a bounded warning signal when the bot itself exceeds 100 REST
+        # calls/minute. The minute summary contains the complete endpoint/caller
+        # breakdown, so this warning is only a lightweight trigger.
+        if rolling >= 100:
+            logger.warning(
+                "Binance REST rate high: rolling_60s=%d endpoint=%s caller=%s elapsed_ms=%.1f success=%s",
+                rolling, endpoint, caller, elapsed_ms, success,
             )
 
-        _emit_binance_summary(now, rolling)
+        summary = _emit_binance_summary_locked(now)
+
+    if summary:
+        trace_event(
+            name="Binance REST Rate Summary",
+            level="WARNING" if summary["rolling_60s_requests"] >= 100 else "DEFAULT",
+            input={"source": "python-binance Client Futures REST methods"},
+            metadata=summary,
+        )
 
 
 def _wrap_binance_method(name, original):

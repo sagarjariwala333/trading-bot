@@ -2,6 +2,10 @@ import os
 import sys
 import logging
 import functools
+import inspect
+import threading
+import time
+from collections import Counter, deque
 from typing import Any, Dict, Optional, Callable
 from app.core.config import settings
 
@@ -10,9 +14,10 @@ logger = logging.getLogger("telemetry")
 _langfuse_client = None
 _langfuse_enabled = False
 
+
 def init_telemetry():
     global _langfuse_client, _langfuse_enabled
-    
+
     public_key = getattr(settings, "LANGFUSE_PUBLIC_KEY", "") or os.environ.get("LANGFUSE_PUBLIC_KEY", "")
     secret_key = getattr(settings, "LANGFUSE_SECRET_KEY", "") or os.environ.get("LANGFUSE_SECRET_KEY", "")
     host = getattr(settings, "LANGFUSE_HOST", "https://cloud.langfuse.com") or os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
@@ -28,7 +33,6 @@ def init_telemetry():
         _langfuse_enabled = False
         return None
 
-    # Populate os.environ so Langfuse v4 SDK and OpenTelemetry exporters pick them up globally
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
     os.environ["LANGFUSE_HOST"] = host
@@ -59,7 +63,7 @@ def get_langfuse_client():
 
 class LangfuseLoggingHandler(logging.Handler):
     """
-    Custom logging handler that routes Python standard logging records 
+    Custom logging handler that routes Python standard logging records
     (logger.info, logger.warning, logger.error) into Langfuse events/observations.
     """
     def __init__(self, level=logging.NOTSET):
@@ -71,7 +75,7 @@ class LangfuseLoggingHandler(logging.Handler):
         client = get_langfuse_client()
         if not client:
             return
-        
+
         try:
             msg = self.format(record)
             level = record.levelname
@@ -86,7 +90,6 @@ class LangfuseLoggingHandler(logging.Handler):
             if record.exc_info:
                 metadata["exc_info"] = self.formatException(record.exc_info)
 
-            # Record log as discrete Langfuse event in v4 SDK
             client.create_event(
                 name=f"Log {level}: {record.name}",
                 input={"message": msg},
@@ -94,14 +97,11 @@ class LangfuseLoggingHandler(logging.Handler):
                 metadata=metadata
             )
         except Exception:
-            # Silence logging telemetry failures so trading bot never crashes
             pass
 
 
 def observe_trace(name: Optional[str] = None, as_type: Optional[str] = None):
-    """
-    Decorator to wrap functions as a Langfuse trace/span with safe exception handling.
-    """
+    """Decorator to wrap functions as a Langfuse trace/span with safe exception handling."""
     def decorator(func: Callable):
         try:
             from langfuse import observe
@@ -121,7 +121,6 @@ def observe_trace(name: Optional[str] = None, as_type: Optional[str] = None):
             try:
                 return observed_func(*args, **kwargs_fn)
             except Exception as e:
-                # Traced function raised an exception
                 trace_event(
                     name=f"Exception in {func.__name__}",
                     level="ERROR",
@@ -140,9 +139,7 @@ def trace_event(
     metadata: Optional[Dict[str, Any]] = None,
     tags: Optional[list] = None
 ):
-    """
-    Record an explicit domain event in Langfuse (e.g. Signal Generated, Order Placed, Position Closed).
-    """
+    """Record an explicit domain event in Langfuse."""
     if not _langfuse_enabled:
         return
     client = get_langfuse_client()
@@ -171,5 +168,141 @@ def flush_telemetry():
             pass
 
 
-# Initialize on module import
+# --------------------------------------------------------------------------
+# TEMPORARY BINANCE REST RATE-LIMIT DIAGNOSTICS
+# --------------------------------------------------------------------------
+# Uses the existing Langfuse integration rather than stdout/sitecustomize.
+# No Binance request is changed, throttled, retried, or suppressed.
+# The monitor aggregates locally and emits one Langfuse event per minute so
+# telemetry itself does not create one event for every Binance REST call.
+
+_binance_monitor_lock = threading.Lock()
+_binance_call_times = deque()
+_binance_counts = Counter()
+_binance_total = 0
+_binance_last_summary = 0.0
+_binance_last_call = {}
+_binance_patched = False
+
+
+def _binance_caller():
+    try:
+        for frame in inspect.stack()[3:10]:
+            module = frame.frame.f_globals.get("__name__", "")
+            if module not in (__name__, "binance.client"):
+                return f"{module}.{frame.function}"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _emit_binance_summary(now: float, rolling_60s: int):
+    global _binance_last_summary
+    if now - _binance_last_summary < 60.0:
+        return
+
+    _binance_last_summary = now
+    counts = dict(_binance_counts)
+    top = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    trace_event(
+        name="Binance REST Rate Summary",
+        metadata={
+            "pid": os.getpid(),
+            "rolling_60s_requests": rolling_60s,
+            "total_requests_since_start": _binance_total,
+            "endpoint_counts": dict(top),
+            "top_endpoint": top[0][0] if top else None,
+            "top_endpoint_count": top[0][1] if top else 0,
+        },
+        input={"source": "python-binance Client Futures REST methods"},
+    )
+
+
+def _record_binance_call(endpoint: str, success: bool, elapsed_ms: float, caller: str):
+    global _binance_total
+    now = time.time()
+    with _binance_monitor_lock:
+        _binance_call_times.append(now)
+        _binance_counts[endpoint] += 1
+        _binance_total += 1
+        previous = _binance_last_call.get(endpoint)
+        interval_ms = (now - previous) * 1000.0 if previous else None
+        _binance_last_call[endpoint] = now
+
+        cutoff = now - 60.0
+        while _binance_call_times and _binance_call_times[0] < cutoff:
+            _binance_call_times.popleft()
+        rolling = len(_binance_call_times)
+
+        # Keep the high-rate event useful but bounded: one event per endpoint per
+        # minute when that endpoint alone reaches 100 calls/minute.
+        if rolling >= 100 and _binance_counts[endpoint] >= 100:
+            trace_event(
+                name="Binance REST High Rate",
+                level="WARNING",
+                metadata={
+                    "pid": os.getpid(),
+                    "endpoint": endpoint,
+                    "caller": caller,
+                    "rolling_60s_requests": rolling,
+                    "endpoint_calls_since_start": _binance_counts[endpoint],
+                    "interval_since_same_endpoint_ms": interval_ms,
+                    "success": success,
+                    "elapsed_ms": elapsed_ms,
+                },
+            )
+
+        _emit_binance_summary(now, rolling)
+
+
+def _wrap_binance_method(name, original):
+    @functools.wraps(original)
+    def wrapped(*args, **kwargs):
+        start = time.monotonic()
+        caller = _binance_caller()
+        success = False
+        try:
+            result = original(*args, **kwargs)
+            success = True
+            return result
+        finally:
+            _record_binance_call(
+                name,
+                success,
+                (time.monotonic() - start) * 1000.0,
+                caller,
+            )
+    wrapped._langfuse_binance_monitor = True
+    return wrapped
+
+
+def install_binance_rest_monitor():
+    global _binance_patched
+    if _binance_patched:
+        return
+    try:
+        from binance.client import Client
+    except Exception as exc:
+        logger.warning(f"Binance REST monitor unavailable: {exc}")
+        return
+
+    patched = 0
+    for name in dir(Client):
+        if not name.startswith("futures_"):
+            continue
+        try:
+            original = getattr(Client, name)
+            if not callable(original) or getattr(original, "_langfuse_binance_monitor", False):
+                continue
+            setattr(Client, name, _wrap_binance_method(name, original))
+            patched += 1
+        except Exception:
+            continue
+
+    _binance_patched = True
+    logger.info(f"Binance REST Langfuse monitor attached: {patched} futures methods")
+
+
+# Initialize on module import, then attach to the python-binance Client used by bot.py.
 init_telemetry()
+install_binance_rest_monitor()

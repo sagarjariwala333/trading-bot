@@ -140,7 +140,7 @@ class Config:
     adx_filter_enabled: bool = False           # optional entry-strength gate - OFF by default, your judgment rules unless you turn it on
     adx_period: int = 14
     adx_threshold: float = 25.0                # entries only allowed when ADX >= this (25 = "confirmed trend" convention)
-    poll_seconds: int = 15
+    poll_seconds: int = 30
     klines_lookback: int = 300
 
     # ---- dashboard integration -------------------------------------------
@@ -515,6 +515,24 @@ class ExchangeGateway:
         self._mark_price_time = 0.0
         self._balance_cache = None
         self._balance_time = 0.0
+
+        self.ws_manager = None
+        try:
+            try:
+                from .websocket_manager import BinanceFuturesWebSocketManager
+            except ImportError:
+                from websocket_manager import BinanceFuturesWebSocketManager  # type: ignore
+            self.ws_manager = BinanceFuturesWebSocketManager(
+                client=self.client,
+                symbol=cfg.symbol,
+                interval=cfg.interval,
+                testnet=cfg.testnet,
+                logger=logger,
+            )
+            self.ws_manager.start()
+        except Exception as e:
+            self.log.warning(f"Could not initialize Binance Futures WebSocket Manager: {e}. Operating in REST-only mode.")
+
         self.sync_clock()
 
     def clear_cache(self):
@@ -565,7 +583,23 @@ class ExchangeGateway:
         while attempt < retries:
             attempt += 1
             try:
-                return fn(*args, **kwargs)
+                res = fn(*args, **kwargs)
+
+                # Inspect Binance response weight header if available to prevent approaching 6000 weight limit
+                client_obj = getattr(self, "client", None)
+                headers = getattr(getattr(client_obj, "response", None), "headers", None) if client_obj else None
+                if headers:
+                    used_weight_str = headers.get("x-mbx-used-weight-1m") or headers.get("X-MBX-USED-WEIGHT-1M")
+                    if used_weight_str:
+                        try:
+                            used_weight = int(used_weight_str)
+                            if used_weight >= 4800:
+                                self.log.warning(f"Binance 1m request weight is high: {used_weight}/6000. Throttling 5s.")
+                                time.sleep(5.0)
+                        except (ValueError, TypeError):
+                            pass
+
+                return res
             except self.BUG_LIKE_EXCEPTION_TYPES as e:
                 self.log.error(f"{fn.__name__} raised {type(e).__name__} ({e}) - this looks "
                                 f"like a bug in our own code (wrong argument, missing key, "
@@ -602,7 +636,6 @@ class ExchangeGateway:
 
                 if code in RATE_LIMIT_BINANCE_CODES:
                     # Check if Binance returned an explicit IP ban timestamp in error text
-                    # Example message: "APIError(code=-1003): Way too many requests; IP(...) banned until 1786400519148..."
                     ban_match = re.search(r"banned until (\d+)", str(e))
                     if ban_match:
                         ban_until_ms = int(ban_match.group(1))
@@ -618,14 +651,13 @@ class ExchangeGateway:
                             time.sleep(remaining_sleep)
                             continue
 
-                    backoff = delay * (2 ** attempt)
+                    # Rate limited (-1003): Sleep for a full 60s to let the 1m window reset completely
                     self.log.warning(f"{fn.__name__} rate-limited ({code}): {e}. "
-                                      f"Backing off {backoff:.1f}s (longer than a normal retry).")
-                    time.sleep(backoff)
+                                      f"Sleeping 60s to clear IP rate-limit window.")
+                    time.sleep(60.0)
                     continue
 
-                # Unknown / generic / transient (network blip, temporary API hiccup) -
-                # standard fixed-delay retry.
+                # Unknown / generic / transient - standard fixed-delay retry.
                 self.log.warning(f"{fn.__name__} failed (attempt {attempt}/{retries}): {e}")
                 time.sleep(delay)
         raise last_exc
@@ -730,6 +762,13 @@ class ExchangeGateway:
             )
 
     def get_available_balance(self, force_fresh: bool = False) -> float:
+        ws_mgr = getattr(self, "ws_manager", None)
+        if not force_fresh and ws_mgr and ws_mgr.is_connected:
+            val = ws_mgr.get_available_balance()
+            if val is not None:
+                self._balance_cache = val
+                self._balance_time = time.time()
+                return val
         now = time.time()
         if not force_fresh and self._balance_cache is not None and (now - self._balance_time < 15.0):
             return self._balance_cache
@@ -739,6 +778,8 @@ class ExchangeGateway:
                 val = float(b["availableBalance"])
                 self._balance_cache = val
                 self._balance_time = now
+                if ws_mgr:
+                    ws_mgr.update_snapshot(available_balance=val)
                 return val
         raise RuntimeError("USDT balance not found")
 
@@ -762,6 +803,13 @@ class ExchangeGateway:
         return df
 
     def get_current_price(self, force_fresh: bool = False) -> float:
+        ws_mgr = getattr(self, "ws_manager", None)
+        if not force_fresh and ws_mgr and ws_mgr.is_connected:
+            val = ws_mgr.get_mark_price()
+            if val is not None:
+                self._mark_price_cache = val
+                self._mark_price_time = time.time()
+                return val
         now = time.time()
         if not force_fresh and self._mark_price_cache is not None and (now - self._mark_price_time < 5.0):
             return self._mark_price_cache
@@ -769,6 +817,8 @@ class ExchangeGateway:
         val = float(t["markPrice"])
         self._mark_price_cache = val
         self._mark_price_time = now
+        if ws_mgr:
+            ws_mgr.update_snapshot(mark_price=val)
         return val
 
     def get_position_information(self, force_fresh: bool = False) -> list:
@@ -781,17 +831,33 @@ class ExchangeGateway:
         return positions
 
     def get_position_amt(self, force_fresh: bool = False) -> float:
+        ws_mgr = getattr(self, "ws_manager", None)
+        if not force_fresh and ws_mgr and ws_mgr.is_connected:
+            val = ws_mgr.get_position_amt()
+            if val is not None:
+                return val
         positions = self.get_position_information(force_fresh=force_fresh)
         for p in positions:
             if p["symbol"] == self.cfg.symbol:
-                return float(p["positionAmt"])
+                val = float(p["positionAmt"])
+                if ws_mgr:
+                    ws_mgr.update_snapshot(position_amt=val)
+                return val
         return 0.0
 
     def get_position_entry_price(self, force_fresh: bool = False) -> float:
+        ws_mgr = getattr(self, "ws_manager", None)
+        if not force_fresh and ws_mgr and ws_mgr.is_connected:
+            val = ws_mgr.get_position_entry_price()
+            if val is not None:
+                return val
         positions = self.get_position_information(force_fresh=force_fresh)
         for p in positions:
             if p["symbol"] == self.cfg.symbol:
-                return float(p["entryPrice"])
+                val = float(p["entryPrice"])
+                if ws_mgr:
+                    ws_mgr.update_snapshot(entry_price=val)
+                return val
         return 0.0
 
     def get_order_status(self, order_id: int) -> Optional[dict]:
@@ -799,6 +865,12 @@ class ExchangeGateway:
         handles both regular orderId and conditional algoId."""
         if not order_id:
             return None
+
+        ws_mgr = getattr(self, "ws_manager", None)
+        if ws_mgr and ws_mgr.is_connected:
+            ws_status = ws_mgr.get_order_status(order_id)
+            if ws_status is not None:
+                return ws_status
 
         # 1. Try standard order lookup
         try:

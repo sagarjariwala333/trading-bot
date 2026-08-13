@@ -17,6 +17,8 @@ _BYTES_PER_KLINE = 45
 
 
 class MarketDataService:
+    _klines_cache: Dict[str, tuple] = {}  # key -> (timestamp, klines_list)
+
     @classmethod
     def list_datasets(cls) -> List[DatasetFileSchema]:
         rows = list_kline_datasets()
@@ -107,6 +109,13 @@ class MarketDataService:
 
     @classmethod
     def fetch_klines_raw(cls, symbol: str, interval: str, limit: int = 100) -> List[Any]:
+        cache_key = f"{symbol.upper()}_{interval}_{limit}"
+        now = time.time()
+        if cache_key in cls._klines_cache:
+            ts, cached_klines = cls._klines_cache[cache_key]
+            if now - ts < 30.0:
+                return cached_klines
+
         resp = requests.get(
             BASE_URL,
             params={"symbol": symbol.upper(), "interval": interval, "limit": limit},
@@ -124,4 +133,5 @@ class MarketDataService:
                 "close": float(r[4]),
                 "close_time": int(r[6]),
             })
+        cls._klines_cache[cache_key] = (now, klines)
         return klines

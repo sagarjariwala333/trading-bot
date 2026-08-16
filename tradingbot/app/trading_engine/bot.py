@@ -786,6 +786,18 @@ class ExchangeGateway:
         raise RuntimeError("USDT balance not found")
 
     def get_closed_klines(self) -> pd.DataFrame:
+        ws_mgr = getattr(self, "ws_manager", None)
+        if ws_mgr and ws_mgr.is_connected:
+            ws_df = ws_mgr.get_closed_klines_df()
+            if ws_df is not None and len(ws_df) >= 50:
+                df = ws_df.copy()
+                now_ms = int(time.time() * 1000)
+                if "close_time" not in df.columns:
+                    df["close_time"] = df["open_time"] + 15 * 60 * 1000
+                df = df[df["close_time"] < now_ms].reset_index(drop=True)
+                df = df.set_index(pd.to_datetime(df["open_time"], unit="ms"))
+                return df
+
         raw = self._call(
             self.client.futures_klines,
             symbol=self.cfg.symbol, interval=self.cfg.interval,
@@ -794,13 +806,16 @@ class ExchangeGateway:
         cols = ["open_time", "open", "high", "low", "close", "volume",
                 "close_time", "qav", "trades", "tb_base", "tb_quote", "ignore"]
         df = pd.DataFrame(raw, columns=cols)
-        for c in ["open", "high", "low", "close"]:
+        for c in ["open", "high", "low", "close", "volume"]:
             df[c] = df[c].astype(float)
         df["open_time"] = df["open_time"].astype("int64")
         df["close_time"] = df["close_time"].astype("int64")
 
+        if ws_mgr:
+            ws_mgr.set_klines_df(df[["open_time", "open", "high", "low", "close", "volume", "close_time"]])
+
         now_ms = int(time.time() * 1000)
-        df = df[df["close_time"] < now_ms].reset_index(drop=True)  # drop any still-forming candle
+        df = df[df["close_time"] < now_ms].reset_index(drop=True)
         df = df.set_index(pd.to_datetime(df["open_time"], unit="ms"))
         return df
 
@@ -864,7 +879,7 @@ class ExchangeGateway:
 
     def get_order_status(self, order_id: int) -> Optional[dict]:
         """Get order status. Return None only if order doesn't exist (filled/cancelled),
-        handles both regular orderId and conditional algoId."""
+        handles both regular orderId and conditional algoId intelligently."""
         if not order_id:
             return None
 
@@ -874,25 +889,36 @@ class ExchangeGateway:
             if ws_status is not None:
                 return ws_status
 
-        # 1. Try standard order lookup
-        try:
-            status = self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
-            return status
-        except Exception as e:
-            error_code = self._binance_error_code(e)
-            if error_code != -2013:
-                raise
+        is_algo_id = isinstance(order_id, int) and order_id > 1000000000000000
 
-        # 2. If -2013, try algo order endpoint directly (where STOP_MARKET orders live)
-        try:
-            if hasattr(self.client, "futures_get_algo_order"):
-                return self._call(self.client.futures_get_algo_order, symbol=self.cfg.symbol, algoId=order_id)
-        except Exception as e:
-            algo_code = self._binance_error_code(e)
-            if algo_code != -2013:
-                self.log.debug(f"futures_get_algo_order failed for {order_id}: {e}")
+        if is_algo_id:
+            try:
+                if hasattr(self.client, "futures_get_algo_order"):
+                    return self._call(self.client.futures_get_algo_order, symbol=self.cfg.symbol, algoId=order_id)
+            except Exception as e:
+                algo_code = self._binance_error_code(e)
+                if algo_code != -2013:
+                    self.log.debug(f"futures_get_algo_order failed for {order_id}: {e}")
+            try:
+                status = self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
+                return status
+            except Exception as e:
+                if self._binance_error_code(e) != -2013:
+                    raise
+        else:
+            try:
+                status = self._call(self.client.futures_get_order, symbol=self.cfg.symbol, orderId=order_id)
+                return status
+            except Exception as e:
+                error_code = self._binance_error_code(e)
+                if error_code != -2013:
+                    raise
+            try:
+                if hasattr(self.client, "futures_get_algo_order"):
+                    return self._call(self.client.futures_get_algo_order, symbol=self.cfg.symbol, algoId=order_id)
+            except Exception:
+                pass
 
-        # 3. Search open orders and open algo orders as fallback
         try:
             open_orders = self.get_open_orders()
             for o in open_orders:
@@ -904,11 +930,13 @@ class ExchangeGateway:
         self.log.debug(f"Order {order_id} no longer exists on Binance (filled/cancelled)")
         return None
 
-    def get_open_orders(self) -> list:
-        """
-        ALL currently open orders for this symbol, straight from Binance - both regular limit
-        orders AND conditional algo orders (like STOP_MARKET).
-        """
+    def get_open_orders(self, force_fresh: bool = False) -> list:
+        ws_mgr = getattr(self, "ws_manager", None)
+        if not force_fresh and ws_mgr and ws_mgr.is_connected:
+            cached_orders = ws_mgr.get_open_orders()
+            if cached_orders:
+                return cached_orders
+
         orders = []
         try:
             reg_orders = self._call(self.client.futures_get_open_orders, symbol=self.cfg.symbol)

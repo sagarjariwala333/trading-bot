@@ -3,8 +3,9 @@ import json
 import logging
 import threading
 import time
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 
+import pandas as pd
 import websockets
 
 TESTNET_WS_BASE = "wss://stream.binancefuture.com"
@@ -33,6 +34,8 @@ class BinanceFuturesWebSocketManager:
         self._available_balance: Optional[float] = None
         self._mark_price: Optional[float] = None
         self._order_statuses: Dict[Union[int, str], dict] = {}
+        self._open_orders: Dict[Union[int, str], dict] = {}
+        self._klines_df: Optional[pd.DataFrame] = None
         self._last_ws_update: float = 0.0
         self._is_connected: bool = False
 
@@ -70,6 +73,21 @@ class BinanceFuturesWebSocketManager:
             str_id = str(order_id)
             if str_id in self._order_statuses:
                 return dict(self._order_statuses[str_id])
+            return None
+
+    def get_open_orders(self) -> List[dict]:
+        with self._lock:
+            return list(self._open_orders.values())
+
+    def set_klines_df(self, df: pd.DataFrame):
+        with self._lock:
+            if df is not None and not df.empty:
+                self._klines_df = df.copy()
+
+    def get_closed_klines_df(self) -> Optional[pd.DataFrame]:
+        with self._lock:
+            if self._klines_df is not None and not self._klines_df.empty:
+                return self._klines_df.copy()
             return None
 
     def update_snapshot(self, position_amt: Optional[float] = None, entry_price: Optional[float] = None,
@@ -131,7 +149,7 @@ class BinanceFuturesWebSocketManager:
             await asyncio.sleep(1200)  # Ping every 20 minutes (Binance expires in 60 mins)
             if self._listen_key and self.client:
                 try:
-                    self.log.info(f"[BINANCE REST REQ] -> futures_stream_keepalive(listenKey={self._listen_key})")
+                    self.log.info(f"[BINANCE WS REQ] -> Keepalive ping for User Data Stream (listenKey={self._listen_key})")
                     await asyncio.to_thread(self.client.futures_stream_keepalive, listenKey=self._listen_key)
                     self.log.debug("User Data Stream listenKey keepalive ping sent.")
                 except Exception as e:
@@ -140,7 +158,7 @@ class BinanceFuturesWebSocketManager:
     # ---- User Data Stream ---------------------------------------------
     async def _get_listen_key(self) -> Optional[str]:
         try:
-            self.log.info("[BINANCE REST REQ] -> futures_stream_get_listen_key()")
+            self.log.info("[BINANCE WS REQ] -> Requesting User Data Stream listenKey")
             res = await asyncio.to_thread(self.client.futures_stream_get_listen_key)
             if isinstance(res, dict) and "listenKey" in res:
                 return res["listenKey"]
@@ -161,7 +179,7 @@ class BinanceFuturesWebSocketManager:
 
             ws_url = f"{self.ws_base}/ws/{self._listen_key}"
             try:
-                self.log.info(f"Connecting to User Data Stream: {ws_url}")
+                self.log.info(f"[BINANCE WS REQ] -> Connecting User Data Stream socket: {ws_url}")
                 async with websockets.connect(ws_url, ping_interval=20, ping_timeout=20) as ws:
                     with self._lock:
                         self._is_connected = True
@@ -226,8 +244,18 @@ class BinanceFuturesWebSocketManager:
                     if order_id:
                         self._order_statuses[order_id] = parsed_status
                         self._order_statuses[str(order_id)] = parsed_status
+                        if status in ("NEW", "PARTIALLY_FILLED"):
+                            self._open_orders[order_id] = parsed_status
+                            self._open_orders[str(order_id)] = parsed_status
+                        elif status in ("FILLED", "CANCELED", "EXPIRED", "REJECTED"):
+                            self._open_orders.pop(order_id, None)
+                            self._open_orders.pop(str(order_id), None)
                     if client_id:
                         self._order_statuses[client_id] = parsed_status
+                        if status in ("NEW", "PARTIALLY_FILLED"):
+                            self._open_orders[client_id] = parsed_status
+                        elif status in ("FILLED", "CANCELED", "EXPIRED", "REJECTED"):
+                            self._open_orders.pop(client_id, None)
                     self._last_ws_update = time.time()
                 self.log.info(f"WS ORDER_TRADE_UPDATE -> orderId: {order_id}, status: {status}, execQty: {executed_qty}")
 
@@ -240,7 +268,7 @@ class BinanceFuturesWebSocketManager:
         backoff = 2.0
         while not self._stop_event.is_set():
             try:
-                self.log.info(f"Connecting to Market Data Stream: {ws_url}")
+                self.log.info(f"[BINANCE WS REQ] -> Connecting Market Data Stream socket ({self.symbol}): {ws_url}")
                 async with websockets.connect(ws_url, ping_interval=20, ping_timeout=20) as ws:
                     backoff = 2.0
                     self.log.info("Market Data Stream connected successfully.")
@@ -265,6 +293,31 @@ class BinanceFuturesWebSocketManager:
         elif event_type == "kline":
             k = data.get("k", {})
             close_price = float(k.get("c", 0.0))
+            open_time = int(k.get("t", 0))
+            open_price = float(k.get("o", 0.0))
+            high_price = float(k.get("h", 0.0))
+            low_price = float(k.get("l", 0.0))
+            volume = float(k.get("v", 0.0))
             with self._lock:
                 self._mark_price = close_price
                 self._last_ws_update = time.time()
+                if self._klines_df is not None and not self._klines_df.empty:
+                    last_idx = self._klines_df.index[-1]
+                    last_time = int(self._klines_df.at[last_idx, "open_time"])
+                    if open_time == last_time:
+                        self._klines_df.at[last_idx, "high"] = max(float(self._klines_df.at[last_idx, "high"]), high_price)
+                        self._klines_df.at[last_idx, "low"] = min(float(self._klines_df.at[last_idx, "low"]), low_price)
+                        self._klines_df.at[last_idx, "close"] = close_price
+                        self._klines_df.at[last_idx, "volume"] = volume
+                    elif open_time > last_time:
+                        new_row = pd.DataFrame([{
+                            "open_time": open_time,
+                            "open": open_price,
+                            "high": high_price,
+                            "low": low_price,
+                            "close": close_price,
+                            "volume": volume,
+                        }])
+                        self._klines_df = pd.concat([self._klines_df, new_row], ignore_index=True)
+                        if len(self._klines_df) > 300:
+                            self._klines_df = self._klines_df.iloc[-300:].reset_index(drop=True)

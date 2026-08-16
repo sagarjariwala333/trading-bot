@@ -1087,6 +1087,9 @@ class ExchangeGateway:
             quantity=self.round_qty(qty), price=self.round_price(price),
             newClientOrderId=self._new_client_order_id(),
         )
+        ws_mgr = getattr(self, "ws_manager", None)
+        if ws_mgr and isinstance(order, dict):
+            ws_mgr.update_order_dict(order)
         order_ref, _ = self._extract_order_ref(order)
         self.log.info("Raw entry order response: %s", order)
         self.log.info("Saving entry orderId=%s clientOrderId=%s",
@@ -1105,6 +1108,9 @@ class ExchangeGateway:
             workingType="CONTRACT_PRICE",
             newClientOrderId=self._new_client_order_id(),
         )
+        ws_mgr = getattr(self, "ws_manager", None)
+        if ws_mgr and isinstance(order, dict):
+            ws_mgr.update_order_dict(order)
         order_ref, _ = self._extract_order_ref(order)
         self.log.info("Raw SL response: %s", order)
         algo_id = order.get("algoId")
@@ -1125,6 +1131,9 @@ class ExchangeGateway:
             reduceOnly=True,
             newClientOrderId=self._new_client_order_id(),
         )
+        ws_mgr = getattr(self, "ws_manager", None)
+        if ws_mgr and isinstance(order, dict):
+            ws_mgr.update_order_dict(order)
         order_ref, _ = self._extract_order_ref(order)
         return order_ref
 
@@ -1137,6 +1146,9 @@ class ExchangeGateway:
             reduceOnly=True,
             newClientOrderId=self._new_client_order_id(),
         )
+        ws_mgr = getattr(self, "ws_manager", None)
+        if ws_mgr and isinstance(order, dict):
+            ws_mgr.update_order_dict(order)
         order_ref, _ = self._extract_order_ref(order)
         return order_ref
 

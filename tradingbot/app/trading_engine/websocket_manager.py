@@ -104,6 +104,45 @@ class BinanceFuturesWebSocketManager:
                 self._mark_price = mark_price
             self._last_ws_update = time.time()
 
+    def update_order_dict(self, o: dict):
+        """Cache an order response dictionary returned by Binance REST API in memory."""
+        if not isinstance(o, dict):
+            return
+        symbol = o.get("symbol") or self.symbol
+        order_id = o.get("orderId") or o.get("algoId")
+        client_id = o.get("clientOrderId") or o.get("clientAlgoId")
+        status = o.get("status") or o.get("algoStatus") or "NEW"
+        price = float(o.get("price") or o.get("stopPrice") or o.get("triggerPrice") or 0.0)
+        stop_price = float(o.get("stopPrice") or o.get("triggerPrice") or 0.0)
+        orig_qty = float(o.get("origQty") or o.get("quantity") or 0.0)
+        executed_qty = float(o.get("executedQty") or o.get("executedQuantity") or 0.0)
+
+        parsed_status = {
+            "symbol": symbol,
+            "orderId": order_id,
+            "algoId": o.get("algoId"),
+            "clientOrderId": client_id,
+            "status": status,
+            "price": price,
+            "stopPrice": stop_price,
+            "origQty": orig_qty,
+            "executedQty": executed_qty,
+            "type": o.get("type") or o.get("orderType") or o.get("algoType"),
+            "side": o.get("side"),
+        }
+        with self._lock:
+            if order_id:
+                self._order_statuses[order_id] = parsed_status
+                self._order_statuses[str(order_id)] = parsed_status
+                if status in ("NEW", "PARTIALLY_FILLED"):
+                    self._open_orders[order_id] = parsed_status
+                    self._open_orders[str(order_id)] = parsed_status
+            if client_id:
+                self._order_statuses[client_id] = parsed_status
+                if status in ("NEW", "PARTIALLY_FILLED"):
+                    self._open_orders[client_id] = parsed_status
+            self._last_ws_update = time.time()
+
     # ---- Lifecycle ----------------------------------------------------
     def start(self):
         if self._thread and self._thread.is_alive():

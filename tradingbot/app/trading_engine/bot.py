@@ -1359,9 +1359,19 @@ class TradingBot:
         try:
             pos_amt = self.ex.get_position_amt()
             open_orders = self.ex.get_open_orders()
+            known_saved_ids = {
+                self.state.entry1_order_id,
+                self.state.entry2_order_id,
+                self.state.sl_order_id,
+                self.state.tp_order_id,
+            }
+
             def _is_own_order(o: dict) -> bool:
                 cid = str(o.get("clientOrderId") or o.get("clientAlgoId") or "")
-                return any(p in cid for p in (CLIENT_ORDER_ID_PREFIX, "ha_alma_"))
+                oid = o.get("orderId") or o.get("algoId")
+                if oid and oid in known_saved_ids:
+                    return True
+                return any(p in cid for p in (CLIENT_ORDER_ID_PREFIX, "ha_alma_", "x-Cb7ytekJ"))
 
             own_orders = [o for o in open_orders if _is_own_order(o)]
             foreign_orders = [o for o in open_orders if o not in own_orders]

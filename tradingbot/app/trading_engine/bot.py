@@ -1359,10 +1359,13 @@ class TradingBot:
         try:
             pos_amt = self.ex.get_position_amt()
             open_orders = self.ex.get_open_orders()
-            own_orders = [o for o in open_orders
-                          if str(o.get("clientOrderId", "")).startswith(CLIENT_ORDER_ID_PREFIX)]
+            def _is_own_order(o: dict) -> bool:
+                cid = str(o.get("clientOrderId") or o.get("clientAlgoId") or "")
+                return any(p in cid for p in (CLIENT_ORDER_ID_PREFIX, "ha_alma_"))
+
+            own_orders = [o for o in open_orders if _is_own_order(o)]
             foreign_orders = [o for o in open_orders if o not in own_orders]
-            own_order_ids = {o["orderId"] for o in own_orders}
+            own_order_ids = {o.get("orderId") or o.get("algoId") for o in own_orders if (o.get("orderId") or o.get("algoId"))}
         except Exception as e:
             self.log.error(f"Startup reconciliation could not reach Binance: {e}. "
                             f"Proceeding with saved state as-is; will keep retrying via normal ticks.")
@@ -1371,11 +1374,14 @@ class TradingBot:
             return
 
         if foreign_orders:
+            details = [
+                f"id={o.get('orderId') or o.get('algoId')} client_id='{o.get('clientOrderId') or o.get('clientAlgoId')}'"
+                for o in foreign_orders
+            ]
             self.log.warning(f"Reconciliation: found {len(foreign_orders)} order(s) on "
-                              f"{self.cfg.symbol} that this bot did NOT place (no matching "
-                              f"clientOrderId prefix) - leaving them completely untouched. "
-                              f"This bot assumes exclusive control of this symbol; if you're "
-                              f"placing orders manually on it too, that assumption breaks.")
+                              f"{self.cfg.symbol} that this bot did NOT place (details: {details}) - "
+                              f"leaving them completely untouched. This bot assumes exclusive control of "
+                              f"this symbol; if you're placing orders manually on it too, that assumption breaks.")
             self.notify.send(f"⚠️ Found {len(foreign_orders)} order(s) on {self.cfg.symbol} "
                               f"this bot didn't place - left untouched, but this bot expects "
                               f"exclusive control of the symbol it trades.")
@@ -1745,7 +1751,8 @@ class TradingBot:
             self.log.error(f"Entry price is invalid (e1={e1}, e2={e2}) - skipping this signal.")
             return
 
-        balance = self.ex.get_available_balance()
+        SAFETY_BUFFER = 0.95  # Max 95% of available balance to leave room for fee/maintenance buffers
+        initial_balance = self.ex.get_available_balance(force_fresh=True)
         margin_fraction, is_aligned = select_margin_fraction(
             signal, float(last_row["close"]), last_row["trend_sma"],
             self.cfg.margin_fraction_per_entry, self.cfg.margin_fraction_counter_trend
@@ -1758,23 +1765,28 @@ class TradingBot:
             self.log.info(f"{signal} is {'ALIGNED with' if is_aligned else 'AGAINST'} the "
                            f"SMA({self.cfg.trend_sma_period}) trend - using "
                            f"{margin_fraction:.2%} margin per entry.")
-        margin_per_entry = balance * margin_fraction
-        notional_per_entry = margin_per_entry * self.cfg.leverage
 
-        qty1 = notional_per_entry / e1
-        qty2 = notional_per_entry / e2
+        target_margin_per_entry = initial_balance * margin_fraction * SAFETY_BUFFER
+        target_notional_per_entry = target_margin_per_entry * self.cfg.leverage
+
+        def get_affordable_qty(target_qty: float, entry_price: float) -> float:
+            fresh_balance = self.ex.get_available_balance(force_fresh=True)
+            max_affordable_margin = fresh_balance * SAFETY_BUFFER
+            max_affordable_notional = max_affordable_margin * self.cfg.leverage
+            max_affordable_qty = max_affordable_notional / entry_price
+            return min(target_qty, max_affordable_qty)
+
+        qty1 = get_affordable_qty(target_notional_per_entry / e1, e1)
 
         min_qty = self.ex.min_qty()
         min_notional = self.ex.min_notional()
-        if Decimal(str(qty1)) < min_qty or Decimal(str(qty2)) < min_qty:
-            self.log.warning("Computed order quantity below exchange minimum (LOT_SIZE), "
-                              "skipping this signal.")
+        if Decimal(str(self.ex.round_qty(qty1))) < min_qty:
+            self.log.warning("Computed order quantity below exchange minimum (LOT_SIZE), skipping this signal.")
             return
-        if min_notional > 0 and Decimal(str(notional_per_entry)) < min_notional:
-            self.log.warning(f"Computed order value ({notional_per_entry:.2f}) is below "
+        if min_notional > 0 and Decimal(str(qty1 * e1)) < min_notional:
+            self.log.warning(f"Computed order value ({qty1 * e1:.2f}) is below "
                               f"the exchange's minimum notional ({min_notional}) for "
-                              f"{self.cfg.symbol} - skipping this signal. Increase leverage, "
-                              f"margin fraction, or account balance to clear this floor.")
+                              f"{self.cfg.symbol} - skipping this signal.")
             return
 
         side = SIDE_BUY if signal == "LONG" else SIDE_SELL
@@ -1785,31 +1797,30 @@ class TradingBot:
             self.log.error(f"Failed to place entry 1: {e}")
             return
 
-        try:
-            order2_id = self.ex.place_entry_limit(side, e2, qty2)
-        except Exception as e:
-            # CRITICAL: entry1 is already live on the exchange at this point. If we just
-            # log and return here without tracking it, it becomes an orphaned order the
-            # bot has zero knowledge of - untracked, unprotected if it fills, invisible
-            # until the next restart's reconciliation. Roll it back instead: cancel the
-            # order we just placed rather than abandon it silently.
-            self.log.error(f"Failed to place entry 2 after entry 1 succeeded (id {order1_id}): "
-                            f"{e}. Rolling back by cancelling entry 1 rather than leaving it "
-                            f"live and untracked.")
+        # Re-evaluate affordable quantity for Entry 2 AFTER Entry 1 has locked its margin
+        qty2 = get_affordable_qty(target_notional_per_entry / e2, e2)
+        if Decimal(str(self.ex.round_qty(qty2))) < min_qty:
+            self.log.warning("Entry 2 quantity below exchange minimum after Entry 1 locked margin - skipping Entry 2.")
+            order2_id = None
+        else:
             try:
-                self.ex.cancel_order(order1_id)
-                self.notify.send(f"⚠️ Entry 2 placement failed on {self.cfg.symbol} after entry 1 "
-                                  f"succeeded - rolled back by cancelling entry 1. Will retry on "
-                                  f"the next signal.")
-            except Exception as cancel_err:
-                self.log.error(f"Rollback cancel of entry 1 (id {order1_id}) ALSO failed: "
-                                f"{cancel_err}. This order may still be live on Binance - "
-                                f"check manually. Startup reconciliation will catch this on "
-                                f"the next restart regardless.")
-                self.notify.send(f"🛑 Entry 2 failed AND rollback cancel of entry 1 also failed "
-                                  f"on {self.cfg.symbol} (order id {order1_id}). Please check "
-                                  f"Binance manually - this order may still be live.")
-            return
+                order2_id = self.ex.place_entry_limit(side, e2, qty2)
+            except Exception as e:
+                self.log.error(f"Failed to place entry 2 after entry 1 succeeded (id {order1_id}): "
+                                f"{e}. Rolling back by cancelling entry 1 rather than leaving it "
+                                f"live and untracked.")
+                try:
+                    self.ex.cancel_order(order1_id)
+                    self.notify.send(f"⚠️ Entry 2 placement failed on {self.cfg.symbol} after entry 1 "
+                                      f"succeeded - rolled back by cancelling entry 1. Will retry on "
+                                      f"the next signal.")
+                except Exception as cancel_err:
+                    self.log.error(f"Rollback cancel of entry 1 (id {order1_id}) ALSO failed: "
+                                    f"{cancel_err}. This order may still be live on Binance - "
+                                    f"check manually.")
+                    self.notify.send(f"🛑 Entry 2 failed AND rollback cancel of entry 1 also failed "
+                                      f"on {self.cfg.symbol} (order id {order1_id}). Please check Binance.")
+                return
 
         self.state.status = "ENTRIES_PLACED"
         self.state.direction = signal

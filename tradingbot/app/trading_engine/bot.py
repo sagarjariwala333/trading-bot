@@ -580,6 +580,8 @@ class ExchangeGateway:
     def _call(self, fn, *args, retries: int = 3, delay: float = 2.0, **kwargs):
         last_exc = None
         attempt = 0
+        fn_name = getattr(fn, "__name__", str(fn))
+        self.log.info(f"[BINANCE REST REQ] -> {fn_name}(args={args}, kwargs={kwargs})")
         while attempt < retries:
             attempt += 1
             try:

@@ -131,6 +131,7 @@ class BinanceFuturesWebSocketManager:
             await asyncio.sleep(1200)  # Ping every 20 minutes (Binance expires in 60 mins)
             if self._listen_key and self.client:
                 try:
+                    self.log.info(f"[BINANCE REST REQ] -> futures_stream_keepalive(listenKey={self._listen_key})")
                     await asyncio.to_thread(self.client.futures_stream_keepalive, listenKey=self._listen_key)
                     self.log.debug("User Data Stream listenKey keepalive ping sent.")
                 except Exception as e:
@@ -139,6 +140,7 @@ class BinanceFuturesWebSocketManager:
     # ---- User Data Stream ---------------------------------------------
     async def _get_listen_key(self) -> Optional[str]:
         try:
+            self.log.info("[BINANCE REST REQ] -> futures_stream_get_listen_key()")
             res = await asyncio.to_thread(self.client.futures_stream_get_listen_key)
             if isinstance(res, dict) and "listenKey" in res:
                 return res["listenKey"]

@@ -1626,26 +1626,23 @@ class TradingBot:
                         snapshot[f"{label}_price"] = float(price) if price and float(price) > 0 else None
                         snapshot[f"{label}_qty"] = float(o.get("origQty") or o.get("quantity") or 0)
 
-            # Fallback: If in position and SL/TP price is still None, scan live open orders directly
+            # Fallback: If in position and SL/TP price is still None, scan live open orders directly (READ ONLY)
             if pos_amt and (snapshot["sl_price"] is None or snapshot["tp_price"] is None):
                 try:
                     open_orders = self.ex.get_open_orders()
                     for o in open_orders:
-                        otype = o.get("type", "")
-                        stop_p = float(o.get("stopPrice", 0) or 0)
+                        otype = str(o.get("type") or o.get("orderType") or o.get("algoType") or "").upper()
+                        stop_p = float(o.get("triggerPrice") or o.get("stopPrice") or 0)
                         limit_p = float(o.get("price", 0) or 0)
-                        qty = float(o.get("origQty", 0) or 0)
+                        qty = float(o.get("origQty") or o.get("quantity") or 0)
+                        is_reduce = parse_bool(o.get("reduceOnly"))
                         
-                        if snapshot["sl_price"] is None and (otype in ("STOP_MARKET", "STOP") or stop_p > 0):
+                        if snapshot["sl_price"] is None and is_reduce and (otype in ("STOP_MARKET", "STOP", "STOP_LOSS", "STOP_LOSS_LIMIT", "TRAILING_STOP_MARKET", "CONDITIONAL") or stop_p > 0):
                             snapshot["sl_price"] = stop_p if stop_p > 0 else limit_p
                             snapshot["sl_qty"] = qty
-                            if not self.state.sl_order_id:
-                                self.state.sl_order_id = o.get("orderId") or o.get("algoId")
-                        elif snapshot["tp_price"] is None and (otype in ("LIMIT", "TAKE_PROFIT") and o.get("reduceOnly")):
+                        elif snapshot["tp_price"] is None and is_reduce and (otype in ("LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_MARKET")):
                             snapshot["tp_price"] = limit_p if limit_p > 0 else stop_p
                             snapshot["tp_qty"] = qty
-                            if not self.state.tp_order_id:
-                                self.state.tp_order_id = o.get("orderId") or o.get("algoId")
                 except Exception as ex:
                     self.log.debug(f"Open orders fallback scan in live status failed: {ex}")
 
@@ -1989,15 +1986,39 @@ class TradingBot:
         # harmless (Binance's reduce-only semantics cap fills at the actual position
         # size, so there's no double-close risk) - having NEITHER is not.
         
+        # Cancel any stale/unfilled entry limit orders now that we are managing protective orders for a position
+        self._cancel_stale_entry_orders()
+
         adjusted_sl_price = sl_price
         sl_is_valid = True
         try:
             mark_price = self.ex.get_current_price()
             is_valid, adjusted_sl_price, reason = self.validate_sl_price(direction, sl_price, mark_price)
             if not is_valid:
-                self.log.warning(f"SL price validation failed: {reason}. Keeping old SL in place, will retry next cycle.")
-                self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {reason}")
-                sl_is_valid = False
+                # Check if market price has crossed past the stop loss boundary (SL breach)
+                is_breached = (direction == "LONG" and adjusted_sl_price >= mark_price) or (direction == "SHORT" and adjusted_sl_price <= mark_price)
+                if is_breached:
+                    self.log.critical(
+                        f"🚨 STOP LOSS BREACHED! {direction} position on {self.cfg.symbol}: mark price ({mark_price:.2f}) "
+                        f"has passed calculated SL ({sl_price:.2f}). Executing emergency market close."
+                    )
+                    self.notify.send(
+                        f"🚨 Emergency Market Close on {self.cfg.symbol}\n"
+                        f"Mark price (${mark_price:.2f}) crossed SL (${sl_price:.2f}) for {direction} position.\n"
+                        f"Closing position immediately to protect account."
+                    )
+                    try:
+                        self._market_close_and_confirm(close_side, total_qty)
+                    except Exception as close_err:
+                        self.log.error(f"Emergency market close failed: {close_err}")
+                    self._cancel_all_remaining_orders()
+                    self.state.reset()
+                    self.save_state()
+                    return
+                else:
+                    self.log.warning(f"SL price validation failed: {reason}. Keeping old SL in place, will retry next cycle.")
+                    self.notify.send(f"⚠️ Calculated SL is invalid on {self.cfg.symbol}: {reason}")
+                    sl_is_valid = False
             else:
                 self.log.info(f"SL price validated: {adjusted_sl_price:.2f} is safe for market {mark_price:.2f}")
         except Exception as e:

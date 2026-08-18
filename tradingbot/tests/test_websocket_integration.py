@@ -131,3 +131,87 @@ def test_ws_snapshot_update_and_fallback():
     assert manager.get_position_entry_price() == 48000.0
     assert manager.get_available_balance() == 2000.0
     assert manager.get_mark_price() == 49000.0
+
+
+def test_ws_entry_price_staleness_timeout(monkeypatch):
+    """Entry price older than 30s should return None to force REST fallback."""
+    mock_client = MagicMock()
+    manager = BinanceFuturesWebSocketManager(
+        client=mock_client,
+        symbol="BTCUSDT",
+        interval="12h",
+        testnet=True,
+    )
+
+    # Set entry price with a recent timestamp
+    current_time = time.time()
+    manager.update_snapshot(entry_price=50000.0)
+
+    # Should return the cached value when fresh
+    assert manager.get_position_entry_price() == 50000.0
+
+    # Simulate time passing beyond 30s threshold
+    monkeypatch.setattr(time, "time", lambda: current_time + 31.0)
+    # Should return None now (stale)
+    assert manager.get_position_entry_price() is None
+
+
+def test_ws_entry_price_time_updated_on_account_update():
+    """_entry_price_time should be set when ACCOUNT_UPDATE arrives."""
+    mock_client = MagicMock()
+    manager = BinanceFuturesWebSocketManager(
+        client=mock_client,
+        symbol="BTCUSDT",
+        interval="12h",
+        testnet=True,
+    )
+
+    assert manager._entry_price_time == 0.0
+
+    account_update_event = {
+        "e": "ACCOUNT_UPDATE",
+        "a": {
+            "B": [],
+            "P": [
+                {"s": "BTCUSDT", "pa": "0.1", "ep": "48000.0"}
+            ]
+        }
+    }
+
+    manager._handle_user_data_event(account_update_event)
+    assert manager._entry_price_time > 0.0
+    assert manager.get_position_entry_price() == 48000.0
+
+
+def test_ws_entry_price_time_updated_on_snapshot():
+    """_entry_price_time should be set when update_snapshot sets entry_price."""
+    mock_client = MagicMock()
+    manager = BinanceFuturesWebSocketManager(
+        client=mock_client,
+        symbol="BTCUSDT",
+        interval="12h",
+        testnet=True,
+    )
+
+    assert manager._entry_price_time == 0.0
+
+    manager.update_snapshot(entry_price=52000.0)
+    assert manager._entry_price_time > 0.0
+    assert manager.get_position_entry_price() == 52000.0
+
+
+def test_ws_entry_price_time_not_updated_without_entry_price():
+    """_entry_price_time should NOT change if update_snapshot doesn't include entry_price."""
+    mock_client = MagicMock()
+    manager = BinanceFuturesWebSocketManager(
+        client=mock_client,
+        symbol="BTCUSDT",
+        interval="12h",
+        testnet=True,
+    )
+
+    assert manager._entry_price_time == 0.0
+
+    # Update only mark price, not entry price
+    manager.update_snapshot(mark_price=49000.0)
+    assert manager._entry_price_time == 0.0

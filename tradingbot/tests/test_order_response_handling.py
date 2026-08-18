@@ -158,3 +158,67 @@ def test_position_info_caching_deduplicates_calls(monkeypatch):
     assert call_count["count"] == 2
 
 
+def test_entry_price_zero_guard_forces_fresh_fetch():
+    """If position exists (positionAmt != 0) but entry price is 0.0,
+    get_position_entry_price must force a fresh REST call."""
+    gateway = ExchangeGateway.__new__(ExchangeGateway)
+    gateway.log = DummyLogger()
+    gateway.cfg = type("Cfg", (), {"symbol": "BTCUSDT"})()
+    gateway._pos_info_cache = None
+    gateway._pos_info_time = 0.0
+    gateway.ws_manager = None
+
+    call_count = {"count": 0}
+
+    def mock_call(fn, *args, **kwargs):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            # First call returns stale entry price of 0.0 with an open position
+            return [{"symbol": "BTCUSDT", "positionAmt": "0.5", "entryPrice": "0.0"}]
+        else:
+            # Second call (force_fresh) returns the real entry price
+            return [{"symbol": "BTCUSDT", "positionAmt": "0.5", "entryPrice": "50000.0"}]
+
+    gateway._call = mock_call
+    gateway.client = type("Client", (), {"futures_position_information": lambda self, symbol: None})()
+
+    price = gateway.get_position_entry_price()
+    assert price == 50000.0
+    assert call_count["count"] == 2  # First stale, second forced fresh
+
+
+def test_entry_price_zero_guard_no_retry_when_flat():
+    """If positionAmt is 0, entry price 0.0 is expected - no retry."""
+    gateway = ExchangeGateway.__new__(ExchangeGateway)
+    gateway.log = DummyLogger()
+    gateway.cfg = type("Cfg", (), {"symbol": "BTCUSDT"})()
+    gateway._pos_info_cache = None
+    gateway._pos_info_time = 0.0
+    gateway.ws_manager = None
+
+    call_count = {"count": 0}
+
+    def mock_call(fn, *args, **kwargs):
+        call_count["count"] += 1
+        return [{"symbol": "BTCUSDT", "positionAmt": "0.0", "entryPrice": "0.0"}]
+
+    gateway._call = mock_call
+    gateway.client = type("Client", (), {"futures_position_information": lambda self, symbol: None})()
+
+    price = gateway.get_position_entry_price()
+    assert price == 0.0
+    assert call_count["count"] == 1  # Only one call, no retry
+
+
+def test_last_entry_price_tracking_in_bot_state():
+    """BotState.last_entry_price should persist through saves and reset on reset()."""
+    from app.trading_engine.bot import BotState
+
+    state = BotState()
+    assert state.last_entry_price is None
+
+    state.last_entry_price = 50000.0
+    assert state.last_entry_price == 50000.0
+
+    state.reset()
+    assert state.last_entry_price is None

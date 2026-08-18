@@ -338,6 +338,7 @@ class BotState:
     signal_candle_time: Optional[int] = None   # ms open_time of the candle that triggered entry
     tp_level: int = 0                   # how many TP levels have been hit so far (0 = none yet)
     last_resized_qty: Optional[float] = None  # qty of last successful protective order resize (prevents resize loops)
+    last_entry_price: Optional[float] = None  # entry price used for current protective orders (detects avg-price shifts)
     realized_pnl: float = 0.0           # accumulated realized profit and loss
 
     def get_symbol_from_env(self) -> str:
@@ -879,7 +880,7 @@ class ExchangeGateway:
         ws_mgr = getattr(self, "ws_manager", None)
         if not force_fresh and ws_mgr and ws_mgr.is_connected:
             val = ws_mgr.get_position_entry_price()
-            if val is not None:
+            if val is not None and val > 0.0:
                 return val
         positions = self.get_position_information(force_fresh=force_fresh)
         for p in positions:
@@ -887,6 +888,17 @@ class ExchangeGateway:
                 val = float(p["entryPrice"])
                 if ws_mgr:
                     ws_mgr.update_snapshot(entry_price=val)
+                # Zero-guard: if position exists but entry price reads 0.0,
+                # force one fresh REST attempt to avoid cascading bad SL/TP.
+                if val == 0.0 and not force_fresh:
+                    pos_amt = float(p.get("positionAmt", 0))
+                    if abs(pos_amt) > QTY_EPSILON:
+                        self.log.warning(
+                            "Entry price is 0.0 for an open position — forcing "
+                            "fresh REST fetch to avoid stale protective orders."
+                        )
+                        self._pos_info_cache = None
+                        return self.get_position_entry_price(force_fresh=True)
                 return val
         return 0.0
 
@@ -1447,7 +1459,7 @@ class TradingBot:
         # checks will pick up and self-heal on the very next tick regardless.
         try:
             actual_direction = "LONG" if pos_amt > 0 else "SHORT"
-            entry_price = self.ex.get_position_entry_price()
+            entry_price = self.ex.get_position_entry_price(force_fresh=True)
 
             self.log.warning(f"Reconciliation: found an OPEN {actual_direction} position on "
                               f"{self.cfg.symbol} (qty {abs(pos_amt):.6f}, entry {entry_price:.2f}). "
@@ -1593,6 +1605,10 @@ class TradingBot:
                 pos_amt = self.ex.get_position_amt()
                 if pos_amt:
                     entry_price = self.ex.get_position_entry_price()
+                    # Zero-guard: if position exists but entry price is 0.0,
+                    # force a fresh REST fetch before writing dashboard snapshot.
+                    if entry_price == 0.0 and abs(pos_amt) > QTY_EPSILON:
+                        entry_price = self.ex.get_position_entry_price(force_fresh=True)
                     if mark_price:
                         unrealized_pnl = (mark_price - entry_price) * pos_amt
 
@@ -1882,7 +1898,7 @@ class TradingBot:
             return  # neither has filled yet, keep waiting
 
         # At least one entry has filled -> (re)build SL/TP off Binance's own merged entryPrice
-        entry_price = self.ex.get_position_entry_price()
+        entry_price = self.ex.get_position_entry_price(force_fresh=True)
         self._place_or_update_protective_orders(entry_price, pos_amt)
         self.state.status = "IN_POSITION"
         entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if self.cfg.leverage else 0.0
@@ -1916,7 +1932,7 @@ class TradingBot:
 
         # If position size changed (second entry filled after the first, or TP partial fill),
         # refresh protective orders to match the new size / merged entry price.
-        entry_price = self.ex.get_position_entry_price()
+        entry_price = self.ex.get_position_entry_price(force_fresh=True)
 
         tp_status = self.ex.get_order_status(self.state.tp_order_id) if self.state.tp_order_id else None
         tp_filled = tp_status is not None and tp_status.get("status") == "FILLED"
@@ -2080,12 +2096,14 @@ class TradingBot:
         # This prevents infinite resize loops when queries return None (distinguishing
         # between actual position changes vs query failures).
         self.state.last_resized_qty = total_qty
-        self.log.debug(f"Cached protective order qty: {total_qty:.6f} for next reconciliation check")
+        self.state.last_entry_price = entry_price
+        self.log.debug(f"Cached protective order qty: {total_qty:.6f}, entry_price: {entry_price:.2f} for next reconciliation check")
 
     def _reconcile_protective_orders(self, entry_price: float, pos_amt: float):
-        """If position size changed without a TP fill causing it (2nd entry filled late,
-        or a manual partial close on Binance), resize SL/TP to match - same price logic,
-        just recomputed against the current actual quantity."""
+        """If position size OR weighted-average entry price changed without a TP fill
+        causing it (2nd entry filled late, or a manual partial close on Binance),
+        resize SL/TP to match - same price logic, just recomputed against the
+        current actual quantity and entry price."""
         total_qty = abs(pos_amt)
 
         # Tolerance here must be based on the symbol's actual LOT_SIZE step, not a tiny
@@ -2098,20 +2116,38 @@ class TradingBot:
         except Exception:
             qty_tolerance = 1e-6  # conservative fallback if the filter lookup itself fails
 
-        # NEW FIX 4: Check if position size differs from cached value.
-        # If we have a cached value (from last successful resize), only proceed if actual qty
-        # differs significantly from cached qty (not just a query failure causing None).
+        # Price tolerance: use tick size so normal rounding doesn't trigger refresh.
+        try:
+            price_tolerance = float(Decimal(self.ex._filter("PRICE_FILTER")["tickSize"])) * 2.0
+        except Exception:
+            price_tolerance = 0.01  # conservative fallback
+
+        # Check if position size differs from cached value.
+        qty_changed = False
         if self.state.last_resized_qty is not None:
             qty_diff = abs(total_qty - self.state.last_resized_qty)
-            if qty_diff <= qty_tolerance:
-                self.log.debug(f"Position qty {total_qty:.6f} matches cached {self.state.last_resized_qty:.6f} "
-                              f"(within tolerance {qty_tolerance:.6f}) - no resize needed")
-                return
-            else:
+            if qty_diff > qty_tolerance:
                 self.log.info(f"Position qty changed: cached={self.state.last_resized_qty:.6f}, "
                              f"actual={total_qty:.6f}, diff={qty_diff:.6f} > tolerance={qty_tolerance:.6f}")
+                qty_changed = True
+            else:
+                self.log.debug(f"Position qty {total_qty:.6f} matches cached {self.state.last_resized_qty:.6f} "
+                              f"(within tolerance {qty_tolerance:.6f})")
 
-        # NEW FIX 2: Distinguish between -2013 (order gone) and network errors.
+        # Check if entry price shifted (e.g. 2nd entry filled at a different price,
+        # changing the weighted average) — even if quantity stayed the same.
+        entry_price_changed = False
+        if self.state.last_entry_price is not None and entry_price > 0:
+            price_diff = abs(entry_price - self.state.last_entry_price)
+            if price_diff > price_tolerance:
+                self.log.info(f"Entry price shifted: cached={self.state.last_entry_price:.2f}, "
+                             f"actual={entry_price:.2f}, diff={price_diff:.2f} > tolerance={price_tolerance}")
+                entry_price_changed = True
+
+        if not qty_changed and not entry_price_changed:
+            return
+
+        # Distinguish between -2013 (order gone) and network errors.
         # get_order_status now:
         # - Returns None if -2013 (order filled/cancelled, no retry)
         # - Raises exception on network errors (so _call retries)
@@ -2125,11 +2161,18 @@ class TradingBot:
         needs_refresh = (
             sl_status is None
             or sl_status.get("status") not in ("NEW", "PARTIALLY_FILLED")
-            or abs(float(sl_status.get("origQty", 0)) - total_qty) > qty_tolerance
+            or qty_changed
+            or entry_price_changed
         )
         if needs_refresh:
-            self.log.info("Position size changed without a TP fill (late 2nd entry fill, or "
-                           "a manual partial close) - resizing protective orders.")
+            reason = []
+            if qty_changed:
+                reason.append("quantity changed")
+            if entry_price_changed:
+                reason.append("entry price shifted")
+            if sl_status is None or sl_status.get("status") not in ("NEW", "PARTIALLY_FILLED"):
+                reason.append("SL order gone/invalid")
+            self.log.info(f"Resizing protective orders: {', '.join(reason)}.")
             self._place_or_update_protective_orders(entry_price, pos_amt)
 
     def _cancel_stale_entry_orders(self):

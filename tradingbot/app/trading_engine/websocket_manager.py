@@ -31,6 +31,7 @@ class BinanceFuturesWebSocketManager:
         self._lock = threading.Lock()
         self._position_amt: Optional[float] = None
         self._entry_price: Optional[float] = None
+        self._entry_price_time: float = 0.0
         self._available_balance: Optional[float] = None
         self._wallet_balance: Optional[float] = None
         self._mark_price: Optional[float] = None
@@ -57,6 +58,11 @@ class BinanceFuturesWebSocketManager:
 
     def get_position_entry_price(self) -> Optional[float]:
         with self._lock:
+            # If the cached entry price is older than 30s, return None to force
+            # a REST fallback rather than serving arbitrarily stale data that
+            # could have been set before a WS reconnection gap.
+            if self._entry_price is not None and (time.time() - self._entry_price_time) > 30.0:
+                return None
             return self._entry_price
 
     def get_available_balance(self) -> Optional[float]:
@@ -104,6 +110,7 @@ class BinanceFuturesWebSocketManager:
                 self._position_amt = position_amt
             if entry_price is not None:
                 self._entry_price = entry_price
+                self._entry_price_time = time.time()
             if available_balance is not None:
                 self._available_balance = available_balance
             if wallet_balance is not None:
@@ -255,6 +262,7 @@ class BinanceFuturesWebSocketManager:
                     if p.get("s") == self.symbol:
                         self._position_amt = float(p.get("pa", 0.0))
                         self._entry_price = float(p.get("ep", 0.0))
+                        self._entry_price_time = time.time()
                 for b in balances:
                     if b.get("a") == "USDT":
                         self._wallet_balance = float(b.get("wb", 0.0))

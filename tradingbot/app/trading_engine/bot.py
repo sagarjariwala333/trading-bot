@@ -763,27 +763,40 @@ class ExchangeGateway:
                 f"have NO open positions or orders on ANY symbol - then restart the bot."
             )
 
-    def get_available_balance(self, force_fresh: bool = False) -> float:
+    def get_account_balances(self, force_fresh: bool = False) -> tuple:
+        """Returns (available_balance, wallet_balance)."""
         ws_mgr = getattr(self, "ws_manager", None)
         if not force_fresh and ws_mgr and ws_mgr.is_connected:
-            val = ws_mgr.get_available_balance()
-            if val is not None:
-                self._balance_cache = val
+            avail = ws_mgr.get_available_balance()
+            wallet = ws_mgr.get_wallet_balance()
+            if avail is not None and wallet is not None:
+                self._balance_cache = avail
+                self._wallet_balance_cache = wallet
                 self._balance_time = time.time()
-                return val
+                return avail, wallet
         now = time.time()
-        if not force_fresh and self._balance_cache is not None and (now - self._balance_time < 15.0):
-            return self._balance_cache
+        if not force_fresh and getattr(self, "_balance_cache", None) is not None and getattr(self, "_wallet_balance_cache", None) is not None and (now - getattr(self, "_balance_time", 0) < 15.0):
+            return self._balance_cache, self._wallet_balance_cache
         balances = self._call(self.client.futures_account_balance)
         for b in balances:
             if b["asset"] == "USDT":
-                val = float(b["availableBalance"])
-                self._balance_cache = val
+                avail_val = float(b["availableBalance"])
+                wallet_val = float(b.get("balance", avail_val))
+                self._balance_cache = avail_val
+                self._wallet_balance_cache = wallet_val
                 self._balance_time = now
                 if ws_mgr:
-                    ws_mgr.update_snapshot(available_balance=val)
-                return val
+                    ws_mgr.update_snapshot(available_balance=avail_val, wallet_balance=wallet_val)
+                return avail_val, wallet_val
         raise RuntimeError("USDT balance not found")
+
+    def get_available_balance(self, force_fresh: bool = False) -> float:
+        avail, _ = self.get_account_balances(force_fresh=force_fresh)
+        return avail
+
+    def get_total_wallet_balance(self, force_fresh: bool = False) -> float:
+        _, wallet = self.get_account_balances(force_fresh=force_fresh)
+        return wallet
 
     def get_closed_klines(self) -> pd.DataFrame:
         ws_mgr = getattr(self, "ws_manager", None)
@@ -1569,9 +1582,9 @@ class TradingBot:
             except Exception:
                 mark_price = None
             try:
-                balance = self.ex.get_available_balance()
+                available_bal, wallet_bal = self.ex.get_account_balances()
             except Exception:
-                balance = None
+                available_bal, wallet_bal = None, None
 
             pos_amt = 0.0
             entry_price = 0.0
@@ -1608,7 +1621,8 @@ class TradingBot:
                 "unrealized_pnl": unrealized_pnl,
                 "realized_pnl": round(realized_pnl, 4),
                 "total_pnl": round((realized_pnl + (unrealized_pnl or 0.0)), 4),
-                "available_balance": balance,
+                "available_balance": available_bal,
+                "wallet_balance": wallet_bal,
                 "atr_at_signal": self.state.atr_at_signal,
                 "current_adx": current_adx,
                 "adx_filter_enabled": self.cfg.adx_filter_enabled,

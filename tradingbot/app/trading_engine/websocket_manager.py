@@ -32,6 +32,7 @@ class BinanceFuturesWebSocketManager:
         self._position_amt: Optional[float] = None
         self._entry_price: Optional[float] = None
         self._available_balance: Optional[float] = None
+        self._wallet_balance: Optional[float] = None
         self._mark_price: Optional[float] = None
         self._order_statuses: Dict[Union[int, str], dict] = {}
         self._open_orders: Dict[Union[int, str], dict] = {}
@@ -62,6 +63,10 @@ class BinanceFuturesWebSocketManager:
         with self._lock:
             return self._available_balance
 
+    def get_wallet_balance(self) -> Optional[float]:
+        with self._lock:
+            return self._wallet_balance
+
     def get_mark_price(self) -> Optional[float]:
         with self._lock:
             return self._mark_price
@@ -91,7 +96,8 @@ class BinanceFuturesWebSocketManager:
             return None
 
     def update_snapshot(self, position_amt: Optional[float] = None, entry_price: Optional[float] = None,
-                        available_balance: Optional[float] = None, mark_price: Optional[float] = None):
+                        available_balance: Optional[float] = None, wallet_balance: Optional[float] = None,
+                        mark_price: Optional[float] = None):
         """Update cache from REST sync when needed."""
         with self._lock:
             if position_amt is not None:
@@ -100,6 +106,8 @@ class BinanceFuturesWebSocketManager:
                 self._entry_price = entry_price
             if available_balance is not None:
                 self._available_balance = available_balance
+            if wallet_balance is not None:
+                self._wallet_balance = wallet_balance
             if mark_price is not None:
                 self._mark_price = mark_price
             self._last_ws_update = time.time()
@@ -249,7 +257,8 @@ class BinanceFuturesWebSocketManager:
                         self._entry_price = float(p.get("ep", 0.0))
                 for b in balances:
                     if b.get("a") == "USDT":
-                        self._available_balance = float(b.get("wb", b.get("cw", 0.0)))
+                        self._wallet_balance = float(b.get("wb", 0.0))
+                        self._available_balance = float(b.get("cw", b.get("wb", 0.0)))
                 self._last_ws_update = time.time()
                 self.log.debug(f"WS ACCOUNT_UPDATE -> pos_amt: {self._position_amt}, entry_price: {self._entry_price}")
 

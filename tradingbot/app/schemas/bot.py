@@ -11,6 +11,8 @@ class BotStateSchema(BaseModel):
     tp_order_id: Optional[int] = None
     atr_at_signal: Optional[float] = None
     signal_candle_time: Optional[int] = None
+    position_opened_time: Optional[float] = None
+    leverage_at_entry: Optional[int] = None
     tp_level: int = 0
     realized_pnl: Optional[float] = 0.0
 

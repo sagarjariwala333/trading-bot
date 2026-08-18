@@ -184,7 +184,10 @@ class BotManager:
                 tp_order_id=state_data.get("tp_order_id"),
                 atr_at_signal=state_data.get("atr_at_signal"),
                 signal_candle_time=state_data.get("signal_candle_time"),
+                position_opened_time=state_data.get("position_opened_time"),
+                leverage_at_entry=state_data.get("leverage_at_entry"),
                 tp_level=state_data.get("tp_level", 0),
+                realized_pnl=state_data.get("realized_pnl", 0.0),
             )
 
         return BotStatusResponseSchema(

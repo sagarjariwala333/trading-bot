@@ -336,6 +336,8 @@ class BotState:
     tp_order_id: Optional[int] = None
     atr_at_signal: Optional[float] = None
     signal_candle_time: Optional[int] = None   # ms open_time of the candle that triggered entry
+    position_opened_time: Optional[float] = None  # epoch seconds when first fill was confirmed
+    leverage_at_entry: Optional[int] = None    # leverage when position was opened (frozen for display & notional)
     tp_level: int = 0                   # how many TP levels have been hit so far (0 = none yet)
     last_resized_qty: Optional[float] = None  # qty of last successful protective order resize (prevents resize loops)
     last_entry_price: Optional[float] = None  # entry price used for current protective orders (detects avg-price shifts)
@@ -1492,6 +1494,11 @@ class TradingBot:
                 self.state.atr_at_signal = fresh_atr
                 self.state.tp_level = 0
 
+            if not getattr(self.state, "leverage_at_entry", None):
+                self.state.leverage_at_entry = self.cfg.leverage
+            if not getattr(self.state, "position_opened_time", None):
+                self.state.position_opened_time = time.time()
+
             self.state.status = "IN_POSITION"
             self.state.entry1_order_id = None
             self.state.entry2_order_id = None
@@ -1616,8 +1623,16 @@ class TradingBot:
             if last_row is not None and "adx" in last_row and pd.notna(last_row["adx"]):
                 current_adx = float(last_row["adx"])
 
-            entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if (pos_amt and entry_price and self.cfg.leverage) else 0.0
-            entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else None
+            display_leverage = getattr(self.state, "leverage_at_entry", None) or self.cfg.leverage
+            entry_margin = round((abs(pos_amt) * entry_price) / display_leverage, 2) if (pos_amt and entry_price and display_leverage) else 0.0
+            notional_value = round(abs(pos_amt) * entry_price, 2) if (pos_amt and entry_price) else 0.0
+
+            if getattr(self.state, "position_opened_time", None):
+                entry_time_str = datetime.fromtimestamp(self.state.position_opened_time, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+            elif self.state.signal_candle_time:
+                entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+            else:
+                entry_time_str = None
 
             realized_pnl = getattr(self.state, "realized_pnl", 0.0) or 0.0
 
@@ -1626,12 +1641,14 @@ class TradingBot:
                 "symbol": self.cfg.symbol,
                 "interval": self.cfg.interval,
                 "leverage": self.cfg.leverage,
+                "leverage_at_entry": display_leverage,
                 "bot_status": self.state.status,
                 "direction": self.state.direction,
                 "tp_level": self.state.tp_level,
                 "position_amt": pos_amt,
                 "entry_price": entry_price,
                 "entry_margin": entry_margin,
+                "notional_value": notional_value,
                 "entry_time": entry_time_str,
                 "mark_price": mark_price,
                 "unrealized_pnl": unrealized_pnl,
@@ -1865,6 +1882,8 @@ class TradingBot:
         self.state.entry2_order_id = order2_id
         self.state.atr_at_signal = atr_val
         self.state.signal_candle_time = last_candle_time
+        self.state.position_opened_time = None
+        self.state.leverage_at_entry = self.cfg.leverage
         self.state.tp_level = 0
         self.save_state()
         self.log.info(f"Placed entries: e1={e1:.2f} qty={qty1:.6f} (id {order1_id}), "
@@ -1901,17 +1920,23 @@ class TradingBot:
         entry_price = self.ex.get_position_entry_price(force_fresh=True)
         self._place_or_update_protective_orders(entry_price, pos_amt)
         self.state.status = "IN_POSITION"
-        entry_margin = round((abs(pos_amt) * entry_price) / self.cfg.leverage, 2) if self.cfg.leverage else 0.0
-        entry_time_str = datetime.fromtimestamp(self.state.signal_candle_time / 1000.0, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if self.state.signal_candle_time else datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        if not getattr(self.state, "position_opened_time", None):
+            self.state.position_opened_time = time.time()
+        if not getattr(self.state, "leverage_at_entry", None):
+            self.state.leverage_at_entry = self.cfg.leverage
+        display_leverage = getattr(self.state, "leverage_at_entry", None) or self.cfg.leverage
+        entry_margin = round((abs(pos_amt) * entry_price) / display_leverage, 2) if display_leverage else 0.0
+        notional_val = round(abs(pos_amt) * entry_price, 2)
+        entry_time_str = datetime.fromtimestamp(self.state.position_opened_time, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
         self.log.info(
             f"[POSITION OPENED] | Direction: {self.state.direction} | Symbol: {self.cfg.symbol} | "
-            f"Entry Price: {entry_price:.2f} | Entry Margin: ${entry_margin:.2f} | Leverage: {self.cfg.leverage}x | "
-            f"Entry Time: {entry_time_str} | Qty: {abs(pos_amt):.6f}"
+            f"Entry Price: {entry_price:.2f} | Entry Margin: ${entry_margin:.2f} | Leverage: {display_leverage}x | "
+            f"Notional: ${notional_val:.2f} | Entry Time: {entry_time_str} | Qty: {abs(pos_amt):.6f}"
         )
         self.notify.send(f"✅ Position opened on {self.cfg.symbol}\n"
                           f"Direction: {self.state.direction}\n"
                           f"Entry Price: ${entry_price:.2f}\n"
-                          f"Entry Margin: ${entry_margin:.2f} (Leverage: {self.cfg.leverage}x)\n"
+                          f"Entry Margin: ${entry_margin:.2f} (Leverage: {display_leverage}x, Notional: ${notional_val:.2f})\n"
                           f"Entry Time: {entry_time_str}\n"
                           f"Qty: {abs(pos_amt):.6f}")
 
@@ -2173,6 +2198,22 @@ class TradingBot:
             if sl_status is None or sl_status.get("status") not in ("NEW", "PARTIALLY_FILLED"):
                 reason.append("SL order gone/invalid")
             self.log.info(f"Resizing protective orders: {', '.join(reason)}.")
+
+            # Notify user clearly if 2nd entry filled (increasing position size and shifting avg entry price)
+            if qty_changed and self.state.last_resized_qty is not None and total_qty > self.state.last_resized_qty:
+                display_leverage = getattr(self.state, "leverage_at_entry", None) or self.cfg.leverage
+                new_margin = round((total_qty * entry_price) / display_leverage, 2) if display_leverage else 0.0
+                new_notional = round(total_qty * entry_price, 2)
+                prev_price = self.state.last_entry_price or entry_price
+                prev_qty = self.state.last_resized_qty
+                self.notify.send(
+                    f"📊 2nd entry filled on {self.cfg.symbol}\n"
+                    f"New Avg Entry: ${entry_price:.2f} (was ${prev_price:.2f})\n"
+                    f"New Position Qty: {total_qty:.6f} (was ${prev_qty:.6f})\n"
+                    f"New Entry Margin: ${new_margin:.2f} (Leverage: {display_leverage}x, Notional: ${new_notional:.2f})\n"
+                    f"Protective orders (SL & TP ladder) refreshed for updated position."
+                )
+
             self._place_or_update_protective_orders(entry_price, pos_amt)
 
     def _cancel_stale_entry_orders(self):

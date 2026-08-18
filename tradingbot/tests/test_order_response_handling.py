@@ -216,9 +216,63 @@ def test_last_entry_price_tracking_in_bot_state():
 
     state = BotState()
     assert state.last_entry_price is None
+    assert state.leverage_at_entry is None
+    assert state.position_opened_time is None
 
     state.last_entry_price = 50000.0
+    state.leverage_at_entry = 20
+    state.position_opened_time = 1700000000.0
+
     assert state.last_entry_price == 50000.0
+    assert state.leverage_at_entry == 20
+    assert state.position_opened_time == 1700000000.0
 
     state.reset()
     assert state.last_entry_price is None
+    assert state.leverage_at_entry is None
+    assert state.position_opened_time is None
+
+
+def test_frozen_leverage_and_notional_in_live_status(monkeypatch):
+    """Live status snapshot must use leverage_at_entry if set, preserving margin calculation."""
+    from app.trading_engine.bot import BotState, Config, TradingBot
+    import app.core.db
+
+    bot = TradingBot.__new__(TradingBot)
+    bot.cfg = Config(symbol="BTCUSDT", leverage=50)  # Config changed to 50x
+    bot.state = BotState(
+        status="IN_POSITION",
+        direction="LONG",
+        position_opened_time=1723980000.0,
+        leverage_at_entry=20,  # Trade was opened at 20x
+    )
+    bot.ex = type("Ex", (), {
+        "get_current_price": lambda self=None: 65000.0,
+        "get_account_balances": lambda self=None: (75.0, 100.0),
+        "get_position_amt": lambda self=None: 0.1,  # 0.1 BTC = $6400 notional at $64000
+        "get_position_entry_price": lambda self=None, force_fresh=False: 64000.0,
+        "get_order_status": lambda self=None, oid=None: None,
+        "get_open_orders": lambda self=None: [],
+    })()
+    bot.log = type("Log", (), {
+        "info": lambda *a, **k: None,
+        "warning": lambda *a, **k: print("WARNING in test:", *a),
+        "error": lambda *a, **k: print("ERROR in test:", *a),
+        "debug": lambda *a, **k: None,
+    })()
+
+    saved_snapshots = []
+    monkeypatch.setattr(app.core.db, "save_db_live_status", lambda sym, snap: saved_snapshots.append(snap))
+
+    bot._write_live_status()
+    assert len(saved_snapshots) == 1
+    snap = saved_snapshots[0]
+    # Notional value = 0.1 * 64000 = 6400.0
+    assert snap["notional_value"] == 6400.0
+    # Entry margin = 6400.0 / 20 (frozen leverage) = 320.0, NOT 6400 / 50 = 128.0
+    assert snap["entry_margin"] == 320.0
+    assert snap["leverage_at_entry"] == 20
+    assert snap["leverage"] == 50
+    assert "UTC" in snap["entry_time"] or "2024" in snap["entry_time"]
+
+
